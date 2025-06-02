@@ -3,7 +3,7 @@ import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, ExternalLink } from 'lucide-react';
+import { Eye } from 'lucide-react';
 
 interface CronjobData {
   Id: number;
@@ -25,15 +25,20 @@ interface CronjobTableProps {
 
 const CronjobTable: React.FC<CronjobTableProps> = ({ data, onRowClick }) => {
   const getStatusBadge = (status: string) => {
-    const variants = {
-      'Success': 'bg-green-100 text-green-800 border-green-200',
-      'Failed': 'bg-red-100 text-red-800 border-red-200',
-      'Processing': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      'Warning': 'bg-orange-100 text-orange-800 border-orange-200'
-    };
+    const isSuccess = ['200', '201'].includes(status);
+    const isError = ['400', '404', '500'].includes(status);
+    
+    let className = 'border ';
+    if (isSuccess) {
+      className += 'bg-green-100 text-green-800 border-green-200';
+    } else if (isError) {
+      className += 'bg-red-100 text-red-800 border-red-200';
+    } else {
+      className += 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    }
     
     return (
-      <Badge className={`${variants[status] || 'bg-gray-100 text-gray-800'} border`}>
+      <Badge className={className}>
         {status}
       </Badge>
     );
@@ -44,7 +49,8 @@ const CronjobTable: React.FC<CronjobTableProps> = ({ data, onRowClick }) => {
       'GET': 'bg-blue-100 text-blue-800',
       'POST': 'bg-green-100 text-green-800',
       'PUT': 'bg-yellow-100 text-yellow-800',
-      'DELETE': 'bg-red-100 text-red-800'
+      'DELETE': 'bg-red-100 text-red-800',
+      'CRON': 'bg-purple-100 text-purple-800'
     };
     
     return (
@@ -94,7 +100,7 @@ const CronjobTable: React.FC<CronjobTableProps> = ({ data, onRowClick }) => {
                 </code>
               </TableCell>
               <TableCell>
-                <span className={`text-sm ${item.duration_time > 3 ? 'text-red-600 font-semibold' : item.duration_time > 1 ? 'text-yellow-600' : 'text-green-600'}`}>
+                <span className={`text-sm ${item.duration_time > 10 ? 'text-red-600 font-semibold' : item.duration_time > 5 ? 'text-yellow-600' : 'text-green-600'}`}>
                   {formatDuration(item.duration_time)}
                 </span>
               </TableCell>

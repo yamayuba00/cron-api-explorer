@@ -6,28 +6,49 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Activity, Clock, Database, AlertCircle, CheckCircle, XCircle, Search, Filter, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
 import CronjobTable from '@/components/CronjobTable';
 import StatCard from '@/components/StatCard';
 import TransactionDetails from '@/components/TransactionDetails';
 
+interface CronjobData {
+  Id: number;
+  feature: string;
+  endpoint: string;
+  method: string;
+  desc_transaction: string;
+  status: string;
+  ip: string;
+  user_agent: string;
+  duration_time: number;
+  created_at: string;
+}
+
 const Dashboard = () => {
-  const [data, setData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
+  const [filteredData, setFilteredData] = useState<CronjobData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [featureFilter, setFeatureFilter] = useState('all');
-  const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<CronjobData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [apiUrl, setApiUrl] = useState('');
 
-  // Mock data generator untuk simulasi
-  const generateMockData = () => {
-    const features = ['Production Sync', 'Inventory Update', 'Quality Check', 'Material Transfer', 'Batch Processing'];
-    const endpoints = ['/api/production/sync', '/api/inventory/update', '/api/quality/check', '/api/material/transfer', '/api/batch/process'];
-    const methods = ['POST', 'GET', 'PUT', 'DELETE'];
-    const statuses = ['Success', 'Failed', 'Processing', 'Warning'];
-    const ips = ['192.168.1.10', '192.168.1.11', '192.168.1.12', '10.0.0.5', '10.0.0.6'];
+  // Mock data generator untuk simulasi saat API tidak tersedia
+  const generateMockData = (): CronjobData[] => {
+    const features = ['GIGR', 'Production Sync', 'Inventory Update', 'Quality Check', 'Material Transfer'];
+    const endpoints = [
+      'api/grpmobile/gigr/insert-gr-fg',
+      '/api/production/sync', 
+      '/api/inventory/update', 
+      '/api/quality/check', 
+      '/api/material/transfer'
+    ];
+    const methods = ['POST', 'GET', 'PUT', 'DELETE', 'CRON'];
+    const statuses = ['200', '500', '404', '201', '400'];
+    const ips = ['10.1.6.203', '192.168.1.11', '192.168.1.12', '10.0.0.5', '10.0.0.6'];
     
     const mockTransactionData = [
       {
@@ -57,20 +78,39 @@ const Dashboard = () => {
       feature: features[Math.floor(Math.random() * features.length)],
       endpoint: endpoints[Math.floor(Math.random() * endpoints.length)],
       method: methods[Math.floor(Math.random() * methods.length)],
-      desc_transaction: JSON.stringify(mockTransactionData),
+      desc_transaction: i % 10 === 0 ? 'Berhasil membuat' : JSON.stringify(mockTransactionData),
       status: statuses[Math.floor(Math.random() * statuses.length)],
       ip: ips[Math.floor(Math.random() * ips.length)],
-      user_agent: 'Mozilla/5.0 (compatible; CronjobBot/1.0)',
-      duration_time: parseFloat((Math.random() * 5 + 0.1).toFixed(2)),
+      user_agent: 'Dart/3.7 (dart:io)',
+      duration_time: parseFloat((Math.random() * 15 + 0.1).toFixed(2)),
       created_at: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
     }));
   };
 
-  useEffect(() => {
-    const mockData = generateMockData();
-    setData(mockData);
-    setFilteredData(mockData);
-  }, []);
+  // API fetch function
+  const fetchCronjobData = async (): Promise<CronjobData[]> => {
+    if (!apiUrl) {
+      return generateMockData();
+    }
+    
+    try {
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch data');
+      }
+      return await response.json();
+    } catch (error) {
+      console.log('API fetch failed, using mock data:', error);
+      return generateMockData();
+    }
+  };
+
+  // React Query for data fetching
+  const { data = [], isLoading, refetch } = useQuery({
+    queryKey: ['cronjobData', apiUrl],
+    queryFn: fetchCronjobData,
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
   useEffect(() => {
     let filtered = data;
@@ -94,31 +134,26 @@ const Dashboard = () => {
     setFilteredData(filtered);
   }, [data, searchTerm, statusFilter, featureFilter]);
 
-  const refreshData = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      const newData = generateMockData();
-      setData(newData);
-      setIsLoading(false);
-    }, 1000);
+  const handleRowClick = (transaction: CronjobData) => {
+    setSelectedTransaction(transaction);
+    setIsModalOpen(true);
   };
 
   // Statistics calculations
   const totalJobs = data.length;
-  const successJobs = data.filter(item => item.status === 'Success').length;
-  const failedJobs = data.filter(item => item.status === 'Failed').length;
-  const avgDuration = data.length > 0 ? (data.reduce((sum, item) => sum + item.duration_time, 0) / data.length).toFixed(2) : 0;
+  const successJobs = data.filter(item => ['200', '201'].includes(item.status)).length;
+  const failedJobs = data.filter(item => ['500', '404', '400'].includes(item.status)).length;
+  const avgDuration = data.length > 0 ? parseFloat((data.reduce((sum, item) => sum + item.duration_time, 0) / data.length).toFixed(2)) : 0;
 
   // Chart data
   const statusChartData = [
-    { name: 'Success', value: successJobs, color: '#10B981' },
-    { name: 'Failed', value: failedJobs, color: '#EF4444' },
-    { name: 'Processing', value: data.filter(item => item.status === 'Processing').length, color: '#F59E0B' },
-    { name: 'Warning', value: data.filter(item => item.status === 'Warning').length, color: '#F97316' }
-  ];
+    { name: 'Success (2xx)', value: successJobs, color: '#10B981' },
+    { name: 'Failed (4xx/5xx)', value: failedJobs, color: '#EF4444' },
+    { name: 'Others', value: totalJobs - successJobs - failedJobs, color: '#F59E0B' }
+  ].filter(item => item.value > 0);
 
   const timeSeriesData = data
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
     .slice(-20)
     .map(item => ({
       time: new Date(item.created_at).toLocaleTimeString(),
@@ -137,10 +172,18 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold text-gray-900">Cronjob Monitoring Dashboard</h1>
             <p className="text-gray-600 mt-1">Real-time monitoring dan analisis history data API & cronjob</p>
           </div>
-          <Button onClick={refreshData} disabled={isLoading} className="flex items-center gap-2">
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh Data
-          </Button>
+          <div className="flex items-center gap-4">
+            <Input
+              placeholder="API Endpoint URL"
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
+              className="w-64"
+            />
+            <Button onClick={() => refetch()} disabled={isLoading} className="flex items-center gap-2">
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              {isLoading ? 'Loading...' : 'Refresh Data'}
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -220,7 +263,7 @@ const Dashboard = () => {
                     innerRadius={60}
                     outerRadius={120}
                     dataKey="value"
-                    label={({ name, percentage }) => `${name}: ${percentage}%`}
+                    label={({ name, value }) => `${name}: ${value}`}
                   >
                     {statusChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -233,7 +276,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Main Content Tabs */}
+        {/* Main Content */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -254,10 +297,11 @@ const Dashboard = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="Success">Success</SelectItem>
-                    <SelectItem value="Failed">Failed</SelectItem>
-                    <SelectItem value="Processing">Processing</SelectItem>
-                    <SelectItem value="Warning">Warning</SelectItem>
+                    <SelectItem value="200">200</SelectItem>
+                    <SelectItem value="201">201</SelectItem>
+                    <SelectItem value="400">400</SelectItem>
+                    <SelectItem value="404">404</SelectItem>
+                    <SelectItem value="500">500</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={featureFilter} onValueChange={setFeatureFilter}>
@@ -275,25 +319,22 @@ const Dashboard = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="table" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="table">Data Table</TabsTrigger>
-                <TabsTrigger value="details">Transaction Details</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="table" className="mt-6">
-                <CronjobTable 
-                  data={filteredData} 
-                  onRowClick={setSelectedTransaction}
-                />
-              </TabsContent>
-              
-              <TabsContent value="details" className="mt-6">
-                <TransactionDetails transaction={selectedTransaction} />
-              </TabsContent>
-            </Tabs>
+            <CronjobTable 
+              data={filteredData} 
+              onRowClick={handleRowClick}
+            />
           </CardContent>
         </Card>
+
+        {/* Transaction Details Modal */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>Transaction Details</DialogTitle>
+            </DialogHeader>
+            <TransactionDetails transaction={selectedTransaction} />
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
