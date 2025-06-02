@@ -72,7 +72,7 @@ const Dashboard = () => {
     ];
 
     return Array.from({ length: 100 }, (_, i) => ({
-      Id: i + 1,
+      Id: (i + 1).toString(),
       feature: features[Math.floor(Math.random() * features.length)],
       endpoint: endpoints[Math.floor(Math.random() * endpoints.length)],
       method: methods[Math.floor(Math.random() * methods.length)],
@@ -80,7 +80,7 @@ const Dashboard = () => {
       status: statuses[Math.floor(Math.random() * statuses.length)],
       ip: ips[Math.floor(Math.random() * ips.length)],
       user_agent: 'Dart/3.7 (dart:io)',
-      duration_time: parseFloat((Math.random() * 15 + 0.1).toFixed(2)),
+      duration_time: (Math.random() * 15 + 0.1).toFixed(2),
       created_at: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
     }));
   };
@@ -204,18 +204,18 @@ const Dashboard = () => {
     setIsModalOpen(true);
   };
 
-  // Enhanced statistics calculations
+  // Enhanced statistics calculations - updated for string types
   const totalJobs = data.length;
   const successJobs = data.filter(item => ['200', '201'].includes(item.status)).length;
   const failedJobs = data.filter(item => ['500', '404', '400', '502', '503'].includes(item.status)).length;
-  const avgDuration = data.length > 0 ? parseFloat((data.reduce((sum, item) => sum + item.duration_time, 0) / data.length).toFixed(2)) : 0;
+  const avgDuration = data.length > 0 ? parseFloat((data.reduce((sum, item) => sum + parseFloat(item.duration_time), 0) / data.length).toFixed(2)) : 0;
   const errorRate = totalJobs > 0 ? ((failedJobs / totalJobs) * 100).toFixed(1) : '0';
   const throughput = data.filter(item => {
     const itemDate = new Date(item.created_at);
     return (new Date().getTime() - itemDate.getTime()) / (1000 * 60) <= 60; // Last hour
   }).length;
 
-  // Enhanced chart data
+  // Enhanced chart data - updated for string types
   const statusChartData = [
     { name: 'Success (2xx)', value: successJobs, color: '#10B981' },
     { name: 'Client Error (4xx)', value: data.filter(item => ['400', '404'].includes(item.status)).length, color: '#F59E0B' },
@@ -227,16 +227,16 @@ const Dashboard = () => {
     .slice(-50)
     .map((item, index) => ({
       time: new Date(item.created_at).toLocaleTimeString(),
-      duration: item.duration_time,
+      duration: parseFloat(item.duration_time),
       success: ['200', '201'].includes(item.status) ? 1 : 0,
       errors: ['500', '404', '400', '502', '503'].includes(item.status) ? 1 : 0,
       requests: 1
     }));
 
-  // Feature performance data
+  // Feature performance data - updated for string types
   const featurePerformanceData = [...new Set(data.map(item => item.feature))].map(feature => {
     const featureData = data.filter(item => item.feature === feature);
-    const avgDur = featureData.reduce((sum, item) => sum + item.duration_time, 0) / featureData.length;
+    const avgDur = featureData.reduce((sum, item) => sum + parseFloat(item.duration_time), 0) / featureData.length;
     const errorCount = featureData.filter(item => ['500', '404', '400'].includes(item.status)).length;
     
     return {

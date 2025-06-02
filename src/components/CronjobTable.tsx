@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Eye } from 'lucide-react';
 
 interface CronjobData {
-  Id: number;
+  Id: string;
   feature: string;
   endpoint: string;
   method: string;
@@ -14,7 +14,7 @@ interface CronjobData {
   status: string;
   ip: string;
   user_agent: string;
-  duration_time: number;
+  duration_time: string;
   created_at: string;
 }
 
@@ -63,14 +63,16 @@ const CronjobTable: React.FC<CronjobTableProps> = ({ data, onRowClick }) => {
     );
   };
 
-  const formatDuration = (duration: number) => {
-    return duration < 1 ? `${(duration * 1000).toFixed(0)}ms` : `${duration.toFixed(2)}s`;
+  const formatDuration = (duration: string) => {
+    const durationNum = parseFloat(duration);
+    return durationNum < 1 ? `${(durationNum * 1000).toFixed(0)}ms` : `${durationNum.toFixed(2)}s`;
   };
 
-  const getDurationColor = (duration: number) => {
-    if (duration > 10) return 'text-red-600 font-semibold';
-    if (duration > 5) return 'text-yellow-600 font-medium';
-    if (duration > 2) return 'text-orange-600';
+  const getDurationColor = (duration: string) => {
+    const durationNum = parseFloat(duration);
+    if (durationNum > 10) return 'text-red-600 font-semibold';
+    if (durationNum > 5) return 'text-yellow-600 font-medium';
+    if (durationNum > 2) return 'text-orange-600';
     return 'text-green-600';
   };
 

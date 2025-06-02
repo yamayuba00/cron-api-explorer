@@ -7,7 +7,7 @@ interface ApiResponse<T> {
 }
 
 interface CronjobData {
-  Id: number;
+  Id: string;
   feature: string;
   endpoint: string;
   method: string;
@@ -15,7 +15,7 @@ interface CronjobData {
   status: string;
   ip: string;
   user_agent: string;
-  duration_time: number;
+  duration_time: string;
   created_at: string;
 }
 
@@ -66,11 +66,12 @@ class ApiClient {
 
     const result = await response.json();
     
-    // Handle different response formats
+    // Handle direct array response
     if (Array.isArray(result)) {
       return result;
     }
     
+    // Handle wrapped response
     if (result.data && Array.isArray(result.data)) {
       return result.data;
     }
@@ -82,7 +83,7 @@ class ApiClient {
     throw new Error('Invalid API response format');
   }
 
-  async fetchTransactionById(id: number): Promise<CronjobData> {
+  async fetchTransactionById(id: string): Promise<CronjobData> {
     if (!this.baseUrl) {
       throw new Error('API base URL not set');
     }
