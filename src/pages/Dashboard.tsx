@@ -17,19 +17,6 @@ import TransactionDetails from '@/components/TransactionDetails';
 import { apiClient, CronjobData } from '@/utils/apiClient';
 import { useToast } from '@/hooks/use-toast';
 
-interface CronjobData {
-  Id: number;
-  feature: string;
-  endpoint: string;
-  method: string;
-  desc_transaction: string;
-  status: string;
-  ip: string;
-  user_agent: string;
-  duration_time: number;
-  created_at: string;
-}
-
 const Dashboard = () => {
   const [filteredData, setFilteredData] = useState<CronjobData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
