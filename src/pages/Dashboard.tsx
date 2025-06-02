@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,12 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Activity, Clock, Database, AlertCircle, CheckCircle, XCircle, Search, Filter, RefreshCw, TrendingUp, BarChart3, PieChart, Settings, Play, Pause, Zap } from 'lucide-react';
+import { Activity, Clock, Database, AlertCircle, CheckCircle, XCircle, Search, Filter, RefreshCw, TrendingUp, BarChart3, PieChart, Settings, Play, Pause, Zap, Globe } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import CronjobTable from '@/components/CronjobTable';
 import StatCard from '@/components/StatCard';
 import TransactionDetails from '@/components/TransactionDetails';
+import { apiClient, CronjobData } from '@/utils/apiClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface CronjobData {
   Id: number;
@@ -41,8 +42,10 @@ const Dashboard = () => {
   const [apiUrl, setApiUrl] = useState('');
   const [isRealTime, setIsRealTime] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(30);
+  const [useApiData, setUseApiData] = useState(false);
+  const { toast } = useToast();
 
-  // Enhanced mock data generator with realistic patterns
+  // Enhanced mock data generator dengan data yang sesuai contoh
   const generateMockData = (): CronjobData[] => {
     const features = ['GIGR', 'Production Sync', 'Inventory Update', 'Quality Check', 'Material Transfer', 'Order Processing', 'Batch Monitor'];
     const endpoints = [
@@ -97,28 +100,74 @@ const Dashboard = () => {
 
   // API fetch function
   const fetchCronjobData = async (): Promise<CronjobData[]> => {
-    if (!apiUrl) {
+    if (!useApiData || !apiUrl) {
       return generateMockData();
     }
     
     try {
-      const response = await fetch(apiUrl);
-      if (!response.ok) {
-        throw new Error('Failed to fetch data');
-      }
-      return await response.json();
+      apiClient.setBaseUrl(apiUrl);
+      const timeRangeHours = {
+        '1h': 1,
+        '6h': 6,
+        '24h': 24,
+        '7d': 168,
+        '30d': 720
+      }[timeRange] || 24;
+      
+      const startDate = new Date(Date.now() - timeRangeHours * 60 * 60 * 1000).toISOString();
+      
+      return await apiClient.fetchTransactionHistory({
+        limit: 1000,
+        startDate,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        feature: featureFilter !== 'all' ? featureFilter : undefined,
+        method: methodFilter !== 'all' ? methodFilter : undefined,
+      });
     } catch (error) {
-      console.log('API fetch failed, using mock data:', error);
+      console.error('API fetch failed, using mock data:', error);
+      toast({
+        title: "API Error",
+        description: "Failed to fetch from API, using mock data",
+        variant: "destructive",
+      });
       return generateMockData();
     }
   };
 
-  // React Query with dynamic refresh interval
+  // React Query dengan dynamic refresh interval
   const { data = [], isLoading, refetch } = useQuery({
-    queryKey: ['cronjobData', apiUrl],
+    queryKey: ['cronjobData', apiUrl, useApiData, timeRange, statusFilter, featureFilter, methodFilter],
     queryFn: fetchCronjobData,
     refetchInterval: isRealTime ? refreshInterval * 1000 : false,
   });
+
+  // Connect to API function
+  const handleConnectApi = () => {
+    if (!apiUrl.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid API URL",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setUseApiData(true);
+    toast({
+      title: "Connecting to API",
+      description: `Connecting to: ${apiUrl}`,
+    });
+    refetch();
+  };
+
+  const handleDisconnectApi = () => {
+    setUseApiData(false);
+    toast({
+      title: "Disconnected",
+      description: "Switched back to mock data",
+    });
+    refetch();
+  };
 
   // Advanced filtering logic
   useEffect(() => {
@@ -218,7 +267,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Enhanced Header */}
+        {/* Enhanced Header dengan API Connection */}
         <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -231,6 +280,12 @@ const Dashboard = () => {
                 <Badge className="bg-green-100 text-green-800 animate-pulse">
                   <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
                   Live
+                </Badge>
+              )}
+              {useApiData && (
+                <Badge className="bg-blue-100 text-blue-800">
+                  <Globe className="w-3 h-3 mr-1" />
+                  API Connected
                 </Badge>
               )}
             </p>
@@ -256,11 +311,22 @@ const Dashboard = () => {
               </SelectContent>
             </Select>
             <Input
-              placeholder="API Endpoint URL"
+              placeholder="API Endpoint URL (e.g., https://api.example.com)"
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
               className="w-80"
             />
+            {!useApiData ? (
+              <Button onClick={handleConnectApi} className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Connect API
+              </Button>
+            ) : (
+              <Button onClick={handleDisconnectApi} variant="outline" className="flex items-center gap-2">
+                <XCircle className="h-4 w-4" />
+                Disconnect
+              </Button>
+            )}
             <Button onClick={() => refetch()} disabled={isLoading} className="flex items-center gap-2">
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               {isLoading ? 'Loading...' : 'Refresh'}

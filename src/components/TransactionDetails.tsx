@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +27,7 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = ({ transaction }) 
         </CardContent>
       </Card>
     );
-  }
+  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -67,6 +66,34 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = ({ transaction }) 
       newExpanded.add(itemId);
     }
     setExpandedItems(newExpanded);
+  };
+
+  const formatJsonForDisplay = (data: any, indent: number = 0): string => {
+    const spaces = '  '.repeat(indent);
+    
+    if (data === null) return 'null';
+    if (typeof data === 'undefined') return 'undefined';
+    if (typeof data === 'string') return `"${data}"`;
+    if (typeof data === 'number' || typeof data === 'boolean') return String(data);
+    
+    if (Array.isArray(data)) {
+      if (data.length === 0) return '[]';
+      const items = data.map(item => 
+        `${spaces}  ${formatJsonForDisplay(item, indent + 1)}`
+      ).join(',\n');
+      return `[\n${items}\n${spaces}]`;
+    }
+    
+    if (typeof data === 'object') {
+      const entries = Object.entries(data);
+      if (entries.length === 0) return '{}';
+      const items = entries.map(([key, value]) => 
+        `${spaces}  "${key}": ${formatJsonForDisplay(value, indent + 1)}`
+      ).join(',\n');
+      return `{\n${items}\n${spaces}}`;
+    }
+    
+    return String(data);
   };
 
   const renderJsonTree = (data: any, parentKey: string = '', level: number = 0) => {
@@ -283,13 +310,29 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = ({ transaction }) 
         <TabsContent value="raw" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Raw JSON Data</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Raw JSON Data
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => copyToClipboard(JSON.stringify(transaction, null, 2))}
+                  className="ml-auto"
+                >
+                  <Copy className="h-4 w-4 mr-1" />
+                  Copy
+                </Button>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-96 w-full">
-                <pre className="text-xs bg-gray-50 p-4 rounded-md overflow-auto">
-                  {JSON.stringify(transaction, null, 2)}
-                </pre>
+                <div className="relative">
+                  <pre className="text-xs bg-gray-50 p-4 rounded-md font-mono leading-relaxed whitespace-pre-wrap break-words overflow-hidden">
+                    <code className="language-json">
+                      {formatJsonForDisplay(transaction)}
+                    </code>
+                  </pre>
+                </div>
               </ScrollArea>
             </CardContent>
           </Card>
