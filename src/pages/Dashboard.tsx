@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Activity, Clock, Database, AlertCircle, CheckCircle, XCircle, Search, Filter, RefreshCw } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Activity, Clock, Database, AlertCircle, CheckCircle, XCircle, Search, Filter, RefreshCw, TrendingUp, BarChart3, PieChart, Settings, Play, Pause, Zap } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import CronjobTable from '@/components/CronjobTable';
 import StatCard from '@/components/StatCard';
@@ -32,23 +34,29 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [featureFilter, setFeatureFilter] = useState('all');
+  const [methodFilter, setMethodFilter] = useState('all');
+  const [timeRange, setTimeRange] = useState('24h');
   const [selectedTransaction, setSelectedTransaction] = useState<CronjobData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apiUrl, setApiUrl] = useState('');
+  const [isRealTime, setIsRealTime] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(30);
 
-  // Mock data generator untuk simulasi saat API tidak tersedia
+  // Enhanced mock data generator with realistic patterns
   const generateMockData = (): CronjobData[] => {
-    const features = ['GIGR', 'Production Sync', 'Inventory Update', 'Quality Check', 'Material Transfer'];
+    const features = ['GIGR', 'Production Sync', 'Inventory Update', 'Quality Check', 'Material Transfer', 'Order Processing', 'Batch Monitor'];
     const endpoints = [
       'api/grpmobile/gigr/insert-gr-fg',
       '/api/production/sync', 
       '/api/inventory/update', 
       '/api/quality/check', 
-      '/api/material/transfer'
+      '/api/material/transfer',
+      '/api/order/process',
+      '/api/batch/monitor'
     ];
     const methods = ['POST', 'GET', 'PUT', 'DELETE', 'CRON'];
-    const statuses = ['200', '500', '404', '201', '400'];
-    const ips = ['10.1.6.203', '192.168.1.11', '192.168.1.12', '10.0.0.5', '10.0.0.6'];
+    const statuses = ['200', '201', '500', '404', '400', '502', '503'];
+    const ips = ['10.1.6.203', '192.168.1.11', '192.168.1.12', '10.0.0.5', '10.0.0.6', '172.16.0.10'];
     
     const mockTransactionData = [
       {
@@ -73,7 +81,7 @@ const Dashboard = () => {
       }
     ];
 
-    return Array.from({ length: 50 }, (_, i) => ({
+    return Array.from({ length: 100 }, (_, i) => ({
       Id: i + 1,
       feature: features[Math.floor(Math.random() * features.length)],
       endpoint: endpoints[Math.floor(Math.random() * endpoints.length)],
@@ -105,21 +113,38 @@ const Dashboard = () => {
     }
   };
 
-  // React Query for data fetching
+  // React Query with dynamic refresh interval
   const { data = [], isLoading, refetch } = useQuery({
     queryKey: ['cronjobData', apiUrl],
     queryFn: fetchCronjobData,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: isRealTime ? refreshInterval * 1000 : false,
   });
 
+  // Advanced filtering logic
   useEffect(() => {
     let filtered = data;
+    
+    // Time range filter
+    const now = new Date();
+    const timeRangeHours = {
+      '1h': 1,
+      '6h': 6,
+      '24h': 24,
+      '7d': 168,
+      '30d': 720
+    }[timeRange] || 24;
+    
+    filtered = filtered.filter(item => {
+      const itemDate = new Date(item.created_at);
+      return (now.getTime() - itemDate.getTime()) / (1000 * 60 * 60) <= timeRangeHours;
+    });
     
     if (searchTerm) {
       filtered = filtered.filter(item => 
         item.feature.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.endpoint.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.ip.includes(searchTerm)
+        item.ip.includes(searchTerm) ||
+        item.desc_transaction.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
@@ -130,205 +155,417 @@ const Dashboard = () => {
     if (featureFilter !== 'all') {
       filtered = filtered.filter(item => item.feature === featureFilter);
     }
+
+    if (methodFilter !== 'all') {
+      filtered = filtered.filter(item => item.method === methodFilter);
+    }
     
     setFilteredData(filtered);
-  }, [data, searchTerm, statusFilter, featureFilter]);
+  }, [data, searchTerm, statusFilter, featureFilter, methodFilter, timeRange]);
 
   const handleRowClick = (transaction: CronjobData) => {
     setSelectedTransaction(transaction);
     setIsModalOpen(true);
   };
 
-  // Statistics calculations
+  // Enhanced statistics calculations
   const totalJobs = data.length;
   const successJobs = data.filter(item => ['200', '201'].includes(item.status)).length;
-  const failedJobs = data.filter(item => ['500', '404', '400'].includes(item.status)).length;
+  const failedJobs = data.filter(item => ['500', '404', '400', '502', '503'].includes(item.status)).length;
   const avgDuration = data.length > 0 ? parseFloat((data.reduce((sum, item) => sum + item.duration_time, 0) / data.length).toFixed(2)) : 0;
+  const errorRate = totalJobs > 0 ? ((failedJobs / totalJobs) * 100).toFixed(1) : '0';
+  const throughput = data.filter(item => {
+    const itemDate = new Date(item.created_at);
+    return (new Date().getTime() - itemDate.getTime()) / (1000 * 60) <= 60; // Last hour
+  }).length;
 
-  // Chart data
+  // Enhanced chart data
   const statusChartData = [
     { name: 'Success (2xx)', value: successJobs, color: '#10B981' },
-    { name: 'Failed (4xx/5xx)', value: failedJobs, color: '#EF4444' },
-    { name: 'Others', value: totalJobs - successJobs - failedJobs, color: '#F59E0B' }
+    { name: 'Client Error (4xx)', value: data.filter(item => ['400', '404'].includes(item.status)).length, color: '#F59E0B' },
+    { name: 'Server Error (5xx)', value: data.filter(item => ['500', '502', '503'].includes(item.status)).length, color: '#EF4444' }
   ].filter(item => item.value > 0);
 
   const timeSeriesData = data
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-    .slice(-20)
-    .map(item => ({
+    .slice(-50)
+    .map((item, index) => ({
       time: new Date(item.created_at).toLocaleTimeString(),
       duration: item.duration_time,
-      status: item.status
+      success: ['200', '201'].includes(item.status) ? 1 : 0,
+      errors: ['500', '404', '400', '502', '503'].includes(item.status) ? 1 : 0,
+      requests: 1
     }));
 
+  // Feature performance data
+  const featurePerformanceData = [...new Set(data.map(item => item.feature))].map(feature => {
+    const featureData = data.filter(item => item.feature === feature);
+    const avgDur = featureData.reduce((sum, item) => sum + item.duration_time, 0) / featureData.length;
+    const errorCount = featureData.filter(item => ['500', '404', '400'].includes(item.status)).length;
+    
+    return {
+      feature,
+      avgDuration: parseFloat(avgDur.toFixed(2)),
+      requests: featureData.length,
+      errors: errorCount,
+      errorRate: ((errorCount / featureData.length) * 100).toFixed(1)
+    };
+  });
+
   const uniqueFeatures = [...new Set(data.map(item => item.feature))];
+  const uniqueMethods = [...new Set(data.map(item => item.method))];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        {/* Enhanced Header */}
+        <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Cronjob Monitoring Dashboard</h1>
-            <p className="text-gray-600 mt-1">Real-time monitoring dan analisis history data API & cronjob</p>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              API & Cronjob Monitoring
+            </h1>
+            <p className="text-gray-600 mt-2 flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Real-time monitoring dan analisis performance
+              {isRealTime && (
+                <Badge className="bg-green-100 text-green-800 animate-pulse">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                  Live
+                </Badge>
+              )}
+            </p>
           </div>
           <div className="flex items-center gap-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="realtime"
+                checked={isRealTime}
+                onCheckedChange={setIsRealTime}
+              />
+              <Label htmlFor="realtime" className="text-sm">Real-time</Label>
+            </div>
+            <Select value={refreshInterval.toString()} onValueChange={(value) => setRefreshInterval(parseInt(value))}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5s</SelectItem>
+                <SelectItem value="10">10s</SelectItem>
+                <SelectItem value="30">30s</SelectItem>
+                <SelectItem value="60">1m</SelectItem>
+              </SelectContent>
+            </Select>
             <Input
               placeholder="API Endpoint URL"
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
-              className="w-64"
+              className="w-80"
             />
             <Button onClick={() => refetch()} disabled={isLoading} className="flex items-center gap-2">
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              {isLoading ? 'Loading...' : 'Refresh Data'}
+              {isLoading ? 'Loading...' : 'Refresh'}
             </Button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Enhanced Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
           <StatCard
-            title="Total Jobs"
-            value={totalJobs}
+            title="Total Requests"
+            value={totalJobs.toLocaleString()}
             icon={Database}
             trend="+12%"
             color="blue"
           />
           <StatCard
-            title="Successful"
-            value={successJobs}
+            title="Success Rate"
+            value={`${((successJobs/totalJobs)*100).toFixed(1)}%`}
             icon={CheckCircle}
             trend="+8%"
             color="green"
           />
           <StatCard
-            title="Failed"
-            value={failedJobs}
+            title="Error Rate"
+            value={`${errorRate}%`}
             icon={XCircle}
             trend="-2%"
             color="red"
           />
           <StatCard
-            title="Avg Duration"
+            title="Avg Response"
             value={`${avgDuration}s`}
             icon={Clock}
             trend="-5%"
             color="orange"
           />
+          <StatCard
+            title="Throughput/h"
+            value={throughput.toString()}
+            icon={TrendingUp}
+            trend="+15%"
+            color="blue"
+          />
+          <StatCard
+            title="Uptime"
+            value="99.9%"
+            icon={Activity}
+            trend="+0.1%"
+            color="green"
+          />
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Duration Trends
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={timeSeriesData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line 
-                    type="monotone" 
-                    dataKey="duration" 
-                    stroke="#3B82F6" 
-                    strokeWidth={2}
-                    dot={{ fill: '#3B82F6' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" />
-                Status Distribution
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={statusChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={120}
-                    dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}`}
-                  >
-                    {statusChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content */}
-        <Card>
+        {/* Advanced Filters */}
+        <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Cronjob History Data</CardTitle>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Search className="h-4 w-4 text-gray-500" />
-                  <Input
-                    placeholder="Search by feature, endpoint, or IP..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-64"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="200">200</SelectItem>
-                    <SelectItem value="201">201</SelectItem>
-                    <SelectItem value="400">400</SelectItem>
-                    <SelectItem value="404">404</SelectItem>
-                    <SelectItem value="500">500</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={featureFilter} onValueChange={setFeatureFilter}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Feature" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Features</SelectItem>
-                    {uniqueFeatures.map(feature => (
-                      <SelectItem key={feature} value={feature}>{feature}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Advanced Filters
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <CronjobTable 
-              data={filteredData} 
-              onRowClick={handleRowClick}
-            />
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-gray-500" />
+                <Input
+                  placeholder="Search logs..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-64"
+                />
+              </div>
+              <Select value={timeRange} onValueChange={setTimeRange}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Time Range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1h">Last 1h</SelectItem>
+                  <SelectItem value="6h">Last 6h</SelectItem>
+                  <SelectItem value="24h">Last 24h</SelectItem>
+                  <SelectItem value="7d">Last 7d</SelectItem>
+                  <SelectItem value="30d">Last 30d</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="200">200</SelectItem>
+                  <SelectItem value="201">201</SelectItem>
+                  <SelectItem value="400">400</SelectItem>
+                  <SelectItem value="404">404</SelectItem>
+                  <SelectItem value="500">500</SelectItem>
+                  <SelectItem value="502">502</SelectItem>
+                  <SelectItem value="503">503</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={featureFilter} onValueChange={setFeatureFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Feature" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Features</SelectItem>
+                  {uniqueFeatures.map(feature => (
+                    <SelectItem key={feature} value={feature}>{feature}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={methodFilter} onValueChange={setMethodFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Methods</SelectItem>
+                  {uniqueMethods.map(method => (
+                    <SelectItem key={method} value={method}>{method}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
 
+        {/* Enhanced Charts Section */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="performance">Performance</TabsTrigger>
+            <TabsTrigger value="errors">Error Analysis</TabsTrigger>
+            <TabsTrigger value="logs">Logs</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Request Timeline
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={timeSeriesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip />
+                      <Area 
+                        type="monotone" 
+                        dataKey="requests" 
+                        stackId="1"
+                        stroke="#3B82F6" 
+                        fill="#3B82F6"
+                        fillOpacity={0.3}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="h-5 w-5" />
+                    Status Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsPieChart>
+                      <Pie
+                        data={statusChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={120}
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: ${value}`}
+                      >
+                        {statusChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="performance" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Response Time Trends
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={timeSeriesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line 
+                        type="monotone" 
+                        dataKey="duration" 
+                        stroke="#F59E0B" 
+                        strokeWidth={2}
+                        dot={{ fill: '#F59E0B' }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Feature Performance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={featurePerformanceData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="feature" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="avgDuration" fill="#8884d8" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="errors" className="space-y-6">
+            <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  Error Rate Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={400}>
+                  <AreaChart data={timeSeriesData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="time" />
+                    <YAxis />
+                    <Tooltip />
+                    <Area 
+                      type="monotone" 
+                      dataKey="success" 
+                      stackId="1"
+                      stroke="#10B981" 
+                      fill="#10B981"
+                      fillOpacity={0.6}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="errors" 
+                      stackId="1"
+                      stroke="#EF4444" 
+                      fill="#EF4444"
+                      fillOpacity={0.6}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="logs" className="space-y-6">
+            <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Request Logs</CardTitle>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Zap className="h-4 w-4" />
+                    {filteredData.length} records found
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CronjobTable 
+                  data={filteredData} 
+                  onRowClick={handleRowClick}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
         {/* Transaction Details Modal */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
             <DialogHeader>
               <DialogTitle>Transaction Details</DialogTitle>
             </DialogHeader>
