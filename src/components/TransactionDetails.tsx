@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -180,6 +181,9 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = ({ transaction }) 
     );
   };
 
+  // Parse duration_time to number to avoid toFixed error
+  const durationTime = parseFloat(transaction.duration_time);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -238,10 +242,10 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = ({ transaction }) 
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Status:</span>
                   <Badge className={
-                    transaction.status === 'Success' ? 'bg-green-100 text-green-800' :
-                    transaction.status === 'Failed' ? 'bg-red-100 text-red-800' :
-                    transaction.status === 'Processing' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-orange-100 text-orange-800'
+                    ['200', '201'].includes(transaction.status) ? 'bg-green-100 text-green-800' :
+                    ['400', '404'].includes(transaction.status) ? 'bg-yellow-100 text-yellow-800' :
+                    ['500', '502', '503'].includes(transaction.status) ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
                   }>
                     {transaction.status}
                   </Badge>
@@ -261,12 +265,12 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = ({ transaction }) 
                 <div className="flex justify-between">
                   <span className="text-sm font-medium">Duration:</span>
                   <span className={`text-sm font-semibold ${
-                    transaction.duration_time > 3 ? 'text-red-600' : 
-                    transaction.duration_time > 1 ? 'text-yellow-600' : 'text-green-600'
+                    durationTime > 3 ? 'text-red-600' : 
+                    durationTime > 1 ? 'text-yellow-600' : 'text-green-600'
                   }`}>
-                    {transaction.duration_time < 1 ? 
-                      `${(transaction.duration_time * 1000).toFixed(0)}ms` : 
-                      `${transaction.duration_time.toFixed(2)}s`
+                    {durationTime < 1 ? 
+                      `${(durationTime * 1000).toFixed(0)}ms` : 
+                      `${durationTime.toFixed(2)}s`
                     }
                   </span>
                 </div>
@@ -327,7 +331,7 @@ const TransactionDetails: React.FC<TransactionDetailsProps> = ({ transaction }) 
             <CardContent>
               <ScrollArea className="h-96 w-full">
                 <div className="relative">
-                  <pre className="text-xs bg-gray-50 p-4 rounded-md font-mono leading-relaxed whitespace-pre-wrap break-words overflow-hidden">
+                  <pre className="text-xs bg-gray-50 p-4 rounded-md font-mono leading-relaxed whitespace-pre-wrap break-words overflow-x-auto">
                     <code className="language-json">
                       {formatJsonForDisplay(transaction)}
                     </code>
