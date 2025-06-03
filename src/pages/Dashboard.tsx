@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Activity, Clock, Database, AlertCircle, CheckCircle, XCircle, Search, Filter, RefreshCw, TrendingUp, BarChart3, PieChart, Settings, Play, Pause, Zap, Globe } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area } from 'recharts';
+import { Activity, Clock, Database, AlertCircle, CheckCircle, XCircle, Search, Filter, RefreshCw, TrendingUp, BarChart3, PieChart, Settings, Play, Pause, Zap, Globe, Server, Users, Timer, Cpu, HardDrive, Network, Shield } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area, ComposedChart, Scatter, ScatterChart, RadialBarChart, RadialBar, Legend } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import CronjobTable from '@/components/CronjobTable';
 import StatCard from '@/components/StatCard';
@@ -48,8 +48,12 @@ const Dashboard = () => {
     const statuses = ['200', '201', '500', '404', '400', '502', '503'];
     const ips = ['10.1.6.203', '192.168.1.11', '192.168.1.12', '10.0.0.5', '10.0.0.6', '172.16.0.10'];
     
-    const mockTransactionData = [
-      {
+    return Array.from({ length: 100 }, (_, i) => ({
+      Id: (i + 1).toString(),
+      feature: features[Math.floor(Math.random() * features.length)],
+      endpoint: endpoints[Math.floor(Math.random() * endpoints.length)],
+      method: methods[Math.floor(Math.random() * methods.length)],
+      desc_transaction: i % 10 === 0 ? 'Berhasil membuat' : JSON.stringify({
         "parent_id": "PrimeBP146120467716",
         "business_unit": "BP",
         "product_type": "WF-BEAM",
@@ -68,15 +72,7 @@ const Dashboard = () => {
         "last_scanned": "2025-06-02 13:47:09",
         "rsi_flag": "0",
         "repair_children": []
-      }
-    ];
-
-    return Array.from({ length: 100 }, (_, i) => ({
-      Id: (i + 1).toString(),
-      feature: features[Math.floor(Math.random() * features.length)],
-      endpoint: endpoints[Math.floor(Math.random() * endpoints.length)],
-      method: methods[Math.floor(Math.random() * methods.length)],
-      desc_transaction: i % 10 === 0 ? 'Berhasil membuat' : JSON.stringify(mockTransactionData),
+      }),
       status: statuses[Math.floor(Math.random() * statuses.length)],
       ip: ips[Math.floor(Math.random() * ips.length)],
       user_agent: 'Dart/3.7 (dart:io)',
@@ -204,7 +200,7 @@ const Dashboard = () => {
     setIsModalOpen(true);
   };
 
-  // Enhanced statistics calculations - updated for string types
+  // Enhanced statistics calculations
   const totalJobs = data.length;
   const successJobs = data.filter(item => ['200', '201'].includes(item.status)).length;
   const failedJobs = data.filter(item => ['500', '404', '400', '502', '503'].includes(item.status)).length;
@@ -212,10 +208,10 @@ const Dashboard = () => {
   const errorRate = totalJobs > 0 ? ((failedJobs / totalJobs) * 100).toFixed(1) : '0';
   const throughput = data.filter(item => {
     const itemDate = new Date(item.created_at);
-    return (new Date().getTime() - itemDate.getTime()) / (1000 * 60) <= 60; // Last hour
+    return (new Date().getTime() - itemDate.getTime()) / (1000 * 60) <= 60;
   }).length;
 
-  // Enhanced chart data - updated for string types
+  // Enhanced chart data preparations
   const statusChartData = [
     { name: 'Success (2xx)', value: successJobs, color: '#10B981' },
     { name: 'Client Error (4xx)', value: data.filter(item => ['400', '404'].includes(item.status)).length, color: '#F59E0B' },
@@ -225,15 +221,51 @@ const Dashboard = () => {
   const timeSeriesData = data
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
     .slice(-50)
-    .map((item, index) => ({
+    .map((item) => ({
       time: new Date(item.created_at).toLocaleTimeString(),
       duration: parseFloat(item.duration_time),
       success: ['200', '201'].includes(item.status) ? 1 : 0,
       errors: ['500', '404', '400', '502', '503'].includes(item.status) ? 1 : 0,
-      requests: 1
+      requests: 1,
+      responseTime: parseFloat(item.duration_time) * 1000,
+      timestamp: new Date(item.created_at).getTime()
     }));
 
-  // Feature performance data - updated for string types
+  // New chart data for enhanced monitoring
+  const hourlyData = Array.from({ length: 24 }, (_, i) => {
+    const hour = i;
+    const hourData = data.filter(item => {
+      const itemHour = new Date(item.created_at).getHours();
+      return itemHour === hour;
+    });
+    
+    return {
+      hour: `${hour}:00`,
+      requests: hourData.length,
+      errors: hourData.filter(item => ['500', '404', '400'].includes(item.status)).length,
+      avgDuration: hourData.length > 0 ? hourData.reduce((sum, item) => sum + parseFloat(item.duration_time), 0) / hourData.length : 0
+    };
+  });
+
+  const methodDistribution = [...new Set(data.map(item => item.method))].map(method => {
+    const methodData = data.filter(item => item.method === method);
+    return {
+      method,
+      count: methodData.length,
+      errors: methodData.filter(item => ['500', '404', '400'].includes(item.status)).length
+    };
+  });
+
+  const ipAddressData = [...new Set(data.map(item => item.ip))].slice(0, 10).map(ip => {
+    const ipData = data.filter(item => item.ip === ip);
+    return {
+      ip,
+      requests: ipData.length,
+      errors: ipData.filter(item => ['500', '404', '400'].includes(item.status)).length,
+      avgDuration: ipData.reduce((sum, item) => sum + parseFloat(item.duration_time), 0) / ipData.length
+    };
+  });
+
   const featurePerformanceData = [...new Set(data.map(item => item.feature))].map(feature => {
     const featureData = data.filter(item => item.feature === feature);
     const avgDur = featureData.reduce((sum, item) => sum + parseFloat(item.duration_time), 0) / featureData.length;
@@ -244,33 +276,36 @@ const Dashboard = () => {
       avgDuration: parseFloat(avgDur.toFixed(2)),
       requests: featureData.length,
       errors: errorCount,
-      errorRate: ((errorCount / featureData.length) * 100).toFixed(1)
+      errorRate: ((errorCount / featureData.length) * 100).toFixed(1),
+      successRate: (((featureData.length - errorCount) / featureData.length) * 100).toFixed(1)
     };
   });
 
   const uniqueFeatures = [...new Set(data.map(item => item.feature))];
   const uniqueMethods = [...new Set(data.map(item => item.method))];
 
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#F97316'];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Enhanced Header dengan API Connection */}
-        <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+        {/* Enhanced Header dengan gradient dan glassmorphism */}
+        <div className="flex items-center justify-between bg-white/10 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/20">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              API & Cronjob Monitoring
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+              🚀 API & Cronjob Monitoring
             </h1>
-            <p className="text-gray-600 mt-2 flex items-center gap-2">
+            <p className="text-white/80 mt-2 flex items-center gap-2">
               <Activity className="h-4 w-4" />
               Real-time monitoring dan analisis performance
               {isRealTime && (
-                <Badge className="bg-green-100 text-green-800 animate-pulse">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                <Badge className="bg-green-500/20 text-green-300 border border-green-500/30 animate-pulse">
+                  <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-ping"></div>
                   Live
                 </Badge>
               )}
               {useApiData && (
-                <Badge className="bg-blue-100 text-blue-800">
+                <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">
                   <Globe className="w-3 h-3 mr-1" />
                   API Connected
                 </Badge>
@@ -284,10 +319,10 @@ const Dashboard = () => {
                 checked={isRealTime}
                 onCheckedChange={setIsRealTime}
               />
-              <Label htmlFor="realtime" className="text-sm">Real-time</Label>
+              <Label htmlFor="realtime" className="text-sm text-white/80">Real-time</Label>
             </div>
             <Select value={refreshInterval.toString()} onValueChange={(value) => setRefreshInterval(parseInt(value))}>
-              <SelectTrigger className="w-20">
+              <SelectTrigger className="w-20 bg-white/10 border-white/20 text-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -301,27 +336,27 @@ const Dashboard = () => {
               placeholder="API Endpoint URL (e.g., https://api.example.com)"
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
-              className="w-80"
+              className="w-80 bg-white/10 border-white/20 text-white placeholder:text-white/50"
             />
             {!useApiData ? (
-              <Button onClick={handleConnectApi} className="flex items-center gap-2">
+              <Button onClick={handleConnectApi} className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700">
                 <Globe className="h-4 w-4" />
                 Connect API
               </Button>
             ) : (
-              <Button onClick={handleDisconnectApi} variant="outline" className="flex items-center gap-2">
+              <Button onClick={handleDisconnectApi} variant="outline" className="flex items-center gap-2 border-white/20 text-white hover:bg-white/10">
                 <XCircle className="h-4 w-4" />
                 Disconnect
               </Button>
             )}
-            <Button onClick={() => refetch()} disabled={isLoading} className="flex items-center gap-2">
+            <Button onClick={() => refetch()} disabled={isLoading} className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               {isLoading ? 'Loading...' : 'Refresh'}
             </Button>
           </div>
         </div>
 
-        {/* Enhanced Stats Cards */}
+        {/* Enhanced Stats Cards with glassmorphism */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
           <StatCard
             title="Total Requests"
@@ -367,10 +402,10 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Advanced Filters */}
-        <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+        {/* Advanced Filters with glassmorphism */}
+        <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-white">
               <Filter className="h-5 w-5" />
               Advanced Filters
             </CardTitle>
@@ -378,16 +413,16 @@ const Dashboard = () => {
           <CardContent>
             <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-gray-500" />
+                <Search className="h-4 w-4 text-white/60" />
                 <Input
                   placeholder="Search logs..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-64"
+                  className="w-64 bg-white/10 border-white/20 text-white placeholder:text-white/50"
                 />
               </div>
               <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white">
                   <SelectValue placeholder="Time Range" />
                 </SelectTrigger>
                 <SelectContent>
@@ -399,7 +434,7 @@ const Dashboard = () => {
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -414,7 +449,7 @@ const Dashboard = () => {
                 </SelectContent>
               </Select>
               <Select value={featureFilter} onValueChange={setFeatureFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-40 bg-white/10 border-white/20 text-white">
                   <SelectValue placeholder="Feature" />
                 </SelectTrigger>
                 <SelectContent>
@@ -425,7 +460,7 @@ const Dashboard = () => {
                 </SelectContent>
               </Select>
               <Select value={methodFilter} onValueChange={setMethodFilter}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white">
                   <SelectValue placeholder="Method" />
                 </SelectTrigger>
                 <SelectContent>
@@ -439,20 +474,21 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Enhanced Charts Section */}
+        {/* Enhanced Charts Section with more visualizations */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="errors">Error Analysis</TabsTrigger>
-            <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5 bg-white/10 border border-white/20">
+            <TabsTrigger value="overview" className="text-white data-[state=active]:bg-white/20">Overview</TabsTrigger>
+            <TabsTrigger value="performance" className="text-white data-[state=active]:bg-white/20">Performance</TabsTrigger>
+            <TabsTrigger value="analytics" className="text-white data-[state=active]:bg-white/20">Analytics</TabsTrigger>
+            <TabsTrigger value="errors" className="text-white data-[state=active]:bg-white/20">Error Analysis</TabsTrigger>
+            <TabsTrigger value="logs" className="text-white data-[state=active]:bg-white/20">Logs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-white">
                     <TrendingUp className="h-5 w-5" />
                     Request Timeline
                   </CardTitle>
@@ -460,26 +496,39 @@ const Dashboard = () => {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <AreaChart data={timeSeriesData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="time" />
-                      <YAxis />
-                      <Tooltip />
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.7)" />
+                      <YAxis stroke="rgba(255,255,255,0.7)" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
                       <Area 
                         type="monotone" 
                         dataKey="requests" 
                         stackId="1"
                         stroke="#3B82F6" 
-                        fill="#3B82F6"
-                        fillOpacity={0.3}
+                        fill="url(#blueGradient)"
+                        fillOpacity={0.6}
                       />
+                      <defs>
+                        <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.1}/>
+                        </linearGradient>
+                      </defs>
                     </AreaChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
-              <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-white">
                     <PieChart className="h-5 w-5" />
                     Status Distribution
                   </CardTitle>
@@ -500,7 +549,77 @@ const Dashboard = () => {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <BarChart3 className="h-5 w-5" />
+                    Hourly Request Pattern
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={hourlyData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis dataKey="hour" stroke="rgba(255,255,255,0.7)" />
+                      <YAxis stroke="rgba(255,255,255,0.7)" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
+                      <Bar dataKey="requests" fill="#10B981" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="errors" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <Network className="h-5 w-5" />
+                    Method Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsPieChart>
+                      <Pie
+                        data={methodDistribution}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={120}
+                        dataKey="count"
+                        label={({ method, count }) => `${method}: ${count}`}
+                      >
+                        {methodDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
                     </RechartsPieChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -510,47 +629,118 @@ const Dashboard = () => {
 
           <TabsContent value="performance" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <Timer className="h-5 w-5" />
                     Response Time Trends
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={timeSeriesData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="time" />
-                      <YAxis />
-                      <Tooltip />
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.7)" />
+                      <YAxis stroke="rgba(255,255,255,0.7)" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
                       <Line 
                         type="monotone" 
                         dataKey="duration" 
                         stroke="#F59E0B" 
-                        strokeWidth={2}
-                        dot={{ fill: '#F59E0B' }}
+                        strokeWidth={3}
+                        dot={{ fill: '#F59E0B', strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: '#F59E0B', strokeWidth: 2 }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
-              <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-white">
                     <BarChart3 className="h-5 w-5" />
                     Feature Performance
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={featurePerformanceData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="feature" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="avgDuration" fill="#8884d8" />
+                    <BarChart data={featurePerformanceData} layout="horizontal">
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis type="number" stroke="rgba(255,255,255,0.7)" />
+                      <YAxis dataKey="feature" type="category" stroke="rgba(255,255,255,0.7)" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
+                      <Bar dataKey="avgDuration" fill="#8B5CF6" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <Cpu className="h-5 w-5" />
+                    Response Time vs Requests
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <ComposedChart data={timeSeriesData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.7)" />
+                      <YAxis yAxisId="left" stroke="rgba(255,255,255,0.7)" />
+                      <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.7)" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
+                      <Bar yAxisId="left" dataKey="requests" fill="#3B82F6" opacity={0.7} radius={[2, 2, 0, 0]} />
+                      <Line yAxisId="right" type="monotone" dataKey="duration" stroke="#F59E0B" strokeWidth={2} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <Server className="h-5 w-5" />
+                    Top IP Addresses
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={ipAddressData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis dataKey="ip" stroke="rgba(255,255,255,0.7)" />
+                      <YAxis stroke="rgba(255,255,255,0.7)" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
+                      <Bar dataKey="requests" fill="#06B6D4" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -558,10 +748,102 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
+          <TabsContent value="analytics" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <TrendingUp className="h-5 w-5" />
+                    Success Rate by Feature
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RadialBarChart data={featurePerformanceData.map(item => ({
+                      ...item,
+                      successRate: parseFloat(item.successRate)
+                    }))}>
+                      <RadialBar
+                        minAngle={15}
+                        dataKey="successRate"
+                        cornerRadius={10}
+                        fill="#10B981"
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
+                    </RadialBarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <Shield className="h-5 w-5" />
+                    Error Rate by Method
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={methodDistribution}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis dataKey="method" stroke="rgba(255,255,255,0.7)" />
+                      <YAxis stroke="rgba(255,255,255,0.7)" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
+                      <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="errors" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20 lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <HardDrive className="h-5 w-5" />
+                    Performance Scatter Plot
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <ScatterChart data={timeSeriesData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis dataKey="requests" stroke="rgba(255,255,255,0.7)" name="Requests" />
+                      <YAxis dataKey="duration" stroke="rgba(255,255,255,0.7)" name="Duration" />
+                      <Tooltip 
+                        cursor={{ strokeDasharray: '3 3' }}
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }} 
+                      />
+                      <Scatter dataKey="duration" fill="#8B5CF6" />
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
           <TabsContent value="errors" className="space-y-6">
-            <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+            <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-white">
                   <AlertCircle className="h-5 w-5" />
                   Error Rate Analysis
                 </CardTitle>
@@ -569,10 +851,17 @@ const Dashboard = () => {
               <CardContent>
                 <ResponsiveContainer width="100%" height={400}>
                   <AreaChart data={timeSeriesData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="time" stroke="rgba(255,255,255,0.7)" />
+                    <YAxis stroke="rgba(255,255,255,0.7)" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(0,0,0,0.8)', 
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        borderRadius: '8px',
+                        color: 'white'
+                      }} 
+                    />
                     <Area 
                       type="monotone" 
                       dataKey="success" 
@@ -596,11 +885,11 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-6">
-            <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+            <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Request Logs</CardTitle>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CardTitle className="text-white">Request Logs</CardTitle>
+                  <div className="flex items-center gap-2 text-sm text-white/70">
                     <Zap className="h-4 w-4" />
                     {filteredData.length} records found
                   </div>
@@ -618,7 +907,7 @@ const Dashboard = () => {
 
         {/* Transaction Details Modal */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto bg-white/95 backdrop-blur-xl">
             <DialogHeader>
               <DialogTitle>Transaction Details</DialogTitle>
             </DialogHeader>
