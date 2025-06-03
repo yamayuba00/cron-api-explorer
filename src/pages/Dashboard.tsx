@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,6 +16,7 @@ import StatCard from '@/components/StatCard';
 import TransactionDetails from '@/components/TransactionDetails';
 import ApiConnectionModal from '@/components/ApiConnectionModal';
 import MonitoringCharts from '@/components/MonitoringCharts';
+import MonitoringMetrics from '@/components/MonitoringMetrics';
 import { apiClient, CronjobData } from '@/utils/apiClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -473,7 +473,7 @@ const Dashboard = () => {
 
         {/* Enhanced Charts Section */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 bg-white/10 border border-white/20 h-8">
+          <TabsList className="grid w-full grid-cols-6 bg-white/10 border border-white/20 h-8">
             <TabsTrigger value="overview" className="text-white data-[state=active]:bg-white/20 text-xs">
               <BarChart3 className="h-3 w-3 mr-1" />
               Overview
@@ -481,6 +481,10 @@ const Dashboard = () => {
             <TabsTrigger value="monitoring" className="text-white data-[state=active]:bg-white/20 text-xs">
               <Activity className="h-3 w-3 mr-1" />
               Monitoring
+            </TabsTrigger>
+            <TabsTrigger value="metrics" className="text-white data-[state=active]:bg-white/20 text-xs">
+              <Zap className="h-3 w-3 mr-1" />
+              Metrics
             </TabsTrigger>
             <TabsTrigger value="performance" className="text-white data-[state=active]:bg-white/20 text-xs">
               <TrendingUp className="h-3 w-3 mr-1" />
@@ -496,6 +500,7 @@ const Dashboard = () => {
             </TabsTrigger>
           </TabsList>
 
+          {/* Overview tab content */}
           <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
@@ -572,6 +577,7 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
+          {/* Monitoring tab content */}
           <TabsContent value="monitoring" className="space-y-4">
             <MonitoringCharts
               data={data}
@@ -584,6 +590,12 @@ const Dashboard = () => {
             />
           </TabsContent>
 
+          {/* Metrics tab content */}
+          <TabsContent value="metrics" className="space-y-4">
+            <MonitoringMetrics data={data} />
+          </TabsContent>
+
+          {/* Performance tab content */}
           <TabsContent value="performance" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
@@ -650,6 +662,7 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
+          {/* Analytics tab content */}
           <TabsContent value="analytics" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
@@ -719,14 +732,27 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
+          {/* Logs tab content */}
           <TabsContent value="logs" className="space-y-4">
             <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-white text-sm">Request Logs</CardTitle>
-                  <div className="flex items-center gap-1 text-xs text-white/70">
+                  <CardTitle className="text-white text-sm flex items-center gap-2">
+                    <Database className="h-4 w-4" />
+                    Request Logs
+                    <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 animate-pulse">
+                      Live
+                    </Badge>
+                  </CardTitle>
+                  <div className="flex items-center gap-2 text-xs text-white/70">
                     <Zap className="h-3 w-3" />
                     {filteredData.length} records
+                    {isRealTime && (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
+                        <span>Auto-refresh every {refreshInterval}s</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardHeader>
