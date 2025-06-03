@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,12 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Activity, Clock, Database, AlertCircle, CheckCircle, XCircle, Search, Filter, RefreshCw, TrendingUp, BarChart3, PieChart, Settings, Play, Pause, Zap, Globe, Server, Users, Timer, Cpu, HardDrive, Network, Shield } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area, ComposedChart, Scatter, ScatterChart, RadialBarChart, RadialBar, Legend } from 'recharts';
+import { Activity, Search, Filter, RefreshCw, Settings, Globe, BarChart3, PieChart, TrendingUp, Users, Server, Shield, Zap, Timer, Database, AlertCircle } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import CronjobTable from '@/components/CronjobTable';
 import StatCard from '@/components/StatCard';
 import TransactionDetails from '@/components/TransactionDetails';
+import ApiConnectionModal from '@/components/ApiConnectionModal';
+import MonitoringCharts from '@/components/MonitoringCharts';
 import { apiClient, CronjobData } from '@/utils/apiClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -30,9 +33,19 @@ const Dashboard = () => {
   const [isRealTime, setIsRealTime] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(30);
   const [useApiData, setUseApiData] = useState(false);
+  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const { toast } = useToast();
 
-  // Enhanced mock data generator dengan data yang sesuai contoh
+  // Load API URL from localStorage on component mount
+  useEffect(() => {
+    const savedApiUrl = localStorage.getItem('api_url');
+    if (savedApiUrl) {
+      setApiUrl(savedApiUrl);
+      setUseApiData(true);
+    }
+  }, []);
+
+  // Enhanced mock data generator
   const generateMockData = (): CronjobData[] => {
     const features = ['GIGR', 'Production Sync', 'Inventory Update', 'Quality Check', 'Material Transfer', 'Order Processing', 'Batch Monitor'];
     const endpoints = [
@@ -124,31 +137,15 @@ const Dashboard = () => {
     refetchInterval: isRealTime ? refreshInterval * 1000 : false,
   });
 
-  // Connect to API function
-  const handleConnectApi = () => {
-    if (!apiUrl.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid API URL",
-        variant: "destructive",
-      });
-      return;
-    }
-    
+  const handleConnectApi = (url: string) => {
+    setApiUrl(url);
     setUseApiData(true);
-    toast({
-      title: "Connecting to API",
-      description: `Connecting to: ${apiUrl}`,
-    });
     refetch();
   };
 
   const handleDisconnectApi = () => {
     setUseApiData(false);
-    toast({
-      title: "Disconnected",
-      description: "Switched back to mock data",
-    });
+    setApiUrl('');
     refetch();
   };
 
@@ -231,7 +228,7 @@ const Dashboard = () => {
       timestamp: new Date(item.created_at).getTime()
     }));
 
-  // New chart data for enhanced monitoring
+  // Chart data for enhanced monitoring
   const hourlyData = Array.from({ length: 24 }, (_, i) => {
     const hour = i;
     const hourData = data.filter(item => {
@@ -287,42 +284,43 @@ const Dashboard = () => {
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#F97316'];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Enhanced Header dengan gradient dan glassmorphism */}
-        <div className="flex items-center justify-between bg-white/10 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/20">
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-              🚀 API & Cronjob Monitoring
-            </h1>
-            <p className="text-white/80 mt-2 flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Real-time monitoring dan analisis performance
-              {isRealTime && (
-                <Badge className="bg-green-500/20 text-green-300 border border-green-500/30 animate-pulse">
-                  <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-ping"></div>
-                  Live
-                </Badge>
-              )}
-              {useApiData && (
-                <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                  <Globe className="w-3 h-3 mr-1" />
-                  API Connected
-                </Badge>
-              )}
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-2">
+      <div className="max-w-full mx-auto space-y-4">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between bg-white/10 backdrop-blur-xl rounded-xl p-4 shadow-2xl border border-white/20">
           <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Activity className="h-6 w-6 text-cyan-400" />
+              <h1 className="text-xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+                API Monitoring Dashboard
+              </h1>
+            </div>
+            {isRealTime && (
+              <Badge className="bg-green-500/20 text-green-300 border border-green-500/30 animate-pulse">
+                <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-ping"></div>
+                Live
+              </Badge>
+            )}
+            {useApiData && (
+              <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                <Globe className="w-3 h-3 mr-1" />
+                Connected
+              </Badge>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
             <div className="flex items-center space-x-2">
               <Switch
                 id="realtime"
                 checked={isRealTime}
                 onCheckedChange={setIsRealTime}
               />
-              <Label htmlFor="realtime" className="text-sm text-white/80">Real-time</Label>
+              <Label htmlFor="realtime" className="text-xs text-white/80">Live</Label>
             </div>
+            
             <Select value={refreshInterval.toString()} onValueChange={(value) => setRefreshInterval(parseInt(value))}>
-              <SelectTrigger className="w-20 bg-white/10 border-white/20 text-white">
+              <SelectTrigger className="w-16 h-8 bg-white/10 border-white/20 text-white text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -332,62 +330,60 @@ const Dashboard = () => {
                 <SelectItem value="60">1m</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              placeholder="API Endpoint URL (e.g., https://api.example.com)"
-              value={apiUrl}
-              onChange={(e) => setApiUrl(e.target.value)}
-              className="w-80 bg-white/10 border-white/20 text-white placeholder:text-white/50"
-            />
-            {!useApiData ? (
-              <Button onClick={handleConnectApi} className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700">
-                <Globe className="h-4 w-4" />
-                Connect API
-              </Button>
-            ) : (
-              <Button onClick={handleDisconnectApi} variant="outline" className="flex items-center gap-2 border-white/20 text-white hover:bg-white/10">
-                <XCircle className="h-4 w-4" />
-                Disconnect
-              </Button>
-            )}
-            <Button onClick={() => refetch()} disabled={isLoading} className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+
+            <Button 
+              onClick={() => setIsApiModalOpen(true)} 
+              size="sm" 
+              variant="outline" 
+              className="border-white/20 text-white hover:bg-white/10"
+            >
+              <Globe className="h-4 w-4 mr-1" />
+              API
+            </Button>
+            
+            <Button 
+              onClick={() => refetch()} 
+              disabled={isLoading} 
+              size="sm"
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+            >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              {isLoading ? 'Loading...' : 'Refresh'}
             </Button>
           </div>
         </div>
 
-        {/* Enhanced Stats Cards with glassmorphism */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+        {/* Compact Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <StatCard
-            title="Total Requests"
+            title="Requests"
             value={totalJobs.toLocaleString()}
             icon={Database}
             trend="+12%"
             color="blue"
           />
           <StatCard
-            title="Success Rate"
+            title="Success"
             value={`${((successJobs/totalJobs)*100).toFixed(1)}%`}
-            icon={CheckCircle}
+            icon={Shield}
             trend="+8%"
             color="green"
           />
           <StatCard
-            title="Error Rate"
+            title="Errors"
             value={`${errorRate}%`}
-            icon={XCircle}
+            icon={AlertCircle}
             trend="-2%"
             color="red"
           />
           <StatCard
-            title="Avg Response"
+            title="Avg Time"
             value={`${avgDuration}s`}
-            icon={Clock}
+            icon={Timer}
             trend="-5%"
             color="orange"
           />
           <StatCard
-            title="Throughput/h"
+            title="Throughput"
             value={throughput.toString()}
             icon={TrendingUp}
             trend="+15%"
@@ -402,55 +398,50 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Advanced Filters with glassmorphism */}
+        {/* Compact Filters */}
         <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Filter className="h-5 w-5" />
-              Advanced Filters
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-white/60" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1">
+                <Search className="h-3 w-3 text-white/60" />
                 <Input
-                  placeholder="Search logs..."
+                  placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-64 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                  className="w-40 h-8 bg-white/10 border-white/20 text-white placeholder:text-white/50 text-xs"
                 />
               </div>
+              
               <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder="Time Range" />
+                <SelectTrigger className="w-20 h-8 bg-white/10 border-white/20 text-white text-xs">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1h">Last 1h</SelectItem>
-                  <SelectItem value="6h">Last 6h</SelectItem>
-                  <SelectItem value="24h">Last 24h</SelectItem>
-                  <SelectItem value="7d">Last 7d</SelectItem>
-                  <SelectItem value="30d">Last 30d</SelectItem>
+                  <SelectItem value="1h">1h</SelectItem>
+                  <SelectItem value="6h">6h</SelectItem>
+                  <SelectItem value="24h">24h</SelectItem>
+                  <SelectItem value="7d">7d</SelectItem>
+                  <SelectItem value="30d">30d</SelectItem>
                 </SelectContent>
               </Select>
+              
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder="Status" />
+                <SelectTrigger className="w-20 h-8 bg-white/10 border-white/20 text-white text-xs">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   <SelectItem value="200">200</SelectItem>
                   <SelectItem value="201">201</SelectItem>
                   <SelectItem value="400">400</SelectItem>
                   <SelectItem value="404">404</SelectItem>
                   <SelectItem value="500">500</SelectItem>
-                  <SelectItem value="502">502</SelectItem>
-                  <SelectItem value="503">503</SelectItem>
                 </SelectContent>
               </Select>
+              
               <Select value={featureFilter} onValueChange={setFeatureFilter}>
-                <SelectTrigger className="w-40 bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder="Feature" />
+                <SelectTrigger className="w-28 h-8 bg-white/10 border-white/20 text-white text-xs">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Features</SelectItem>
@@ -459,91 +450,107 @@ const Dashboard = () => {
                   ))}
                 </SelectContent>
               </Select>
+              
               <Select value={methodFilter} onValueChange={setMethodFilter}>
-                <SelectTrigger className="w-32 bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder="Method" />
+                <SelectTrigger className="w-20 h-8 bg-white/10 border-white/20 text-white text-xs">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Methods</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   {uniqueMethods.map(method => (
                     <SelectItem key={method} value={method}>{method}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              
+              <div className="ml-auto text-xs text-white/70 flex items-center gap-1">
+                <Filter className="h-3 w-3" />
+                {filteredData.length} records
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Enhanced Charts Section with more visualizations */}
+        {/* Enhanced Charts Section */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 bg-white/10 border border-white/20">
-            <TabsTrigger value="overview" className="text-white data-[state=active]:bg-white/20">Overview</TabsTrigger>
-            <TabsTrigger value="performance" className="text-white data-[state=active]:bg-white/20">Performance</TabsTrigger>
-            <TabsTrigger value="analytics" className="text-white data-[state=active]:bg-white/20">Analytics</TabsTrigger>
-            <TabsTrigger value="errors" className="text-white data-[state=active]:bg-white/20">Error Analysis</TabsTrigger>
-            <TabsTrigger value="logs" className="text-white data-[state=active]:bg-white/20">Logs</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5 bg-white/10 border border-white/20 h-8">
+            <TabsTrigger value="overview" className="text-white data-[state=active]:bg-white/20 text-xs">
+              <BarChart3 className="h-3 w-3 mr-1" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="monitoring" className="text-white data-[state=active]:bg-white/20 text-xs">
+              <Activity className="h-3 w-3 mr-1" />
+              Monitoring
+            </TabsTrigger>
+            <TabsTrigger value="performance" className="text-white data-[state=active]:bg-white/20 text-xs">
+              <TrendingUp className="h-3 w-3 mr-1" />
+              Performance
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="text-white data-[state=active]:bg-white/20 text-xs">
+              <PieChart className="h-3 w-3 mr-1" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="text-white data-[state=active]:bg-white/20 text-xs">
+              <Database className="h-3 w-3 mr-1" />
+              Logs
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <TrendingUp className="h-5 w-5" />
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-white text-sm">
+                    <TrendingUp className="h-4 w-4" />
                     Request Timeline
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
+                <CardContent className="pt-0">
+                  <ResponsiveContainer width="100%" height={200}>
                     <AreaChart data={timeSeriesData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.7)" />
-                      <YAxis stroke="rgba(255,255,255,0.7)" />
+                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.7)" fontSize={10} />
+                      <YAxis stroke="rgba(255,255,255,0.7)" fontSize={10} />
                       <Tooltip 
                         contentStyle={{ 
                           backgroundColor: 'rgba(0,0,0,0.8)', 
                           border: '1px solid rgba(255,255,255,0.2)',
                           borderRadius: '8px',
-                          color: 'white'
+                          color: 'white',
+                          fontSize: '12px'
                         }} 
                       />
                       <Area 
                         type="monotone" 
                         dataKey="requests" 
-                        stackId="1"
                         stroke="#3B82F6" 
-                        fill="url(#blueGradient)"
-                        fillOpacity={0.6}
+                        fill="#3B82F6"
+                        fillOpacity={0.3}
                       />
-                      <defs>
-                        <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.1}/>
-                        </linearGradient>
-                      </defs>
                     </AreaChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
               <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <PieChart className="h-5 w-5" />
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-white text-sm">
+                    <PieChart className="h-4 w-4" />
                     Status Distribution
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
+                <CardContent className="pt-0">
+                  <ResponsiveContainer width="100%" height={200}>
                     <RechartsPieChart>
                       <Pie
                         data={statusChartData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={120}
+                        innerRadius={40}
+                        outerRadius={80}
                         dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}`}
+                        label={({ name, value }) => `${value}`}
+                        labelLine={false}
                       >
                         {statusChartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -554,59 +561,143 @@ const Dashboard = () => {
                           backgroundColor: 'rgba(0,0,0,0.8)', 
                           border: '1px solid rgba(255,255,255,0.2)',
                           borderRadius: '8px',
-                          color: 'white'
+                          color: 'white',
+                          fontSize: '12px'
                         }} 
                       />
                     </RechartsPieChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
 
+          <TabsContent value="monitoring" className="space-y-4">
+            <MonitoringCharts
+              data={data}
+              timeSeriesData={timeSeriesData}
+              statusChartData={statusChartData}
+              hourlyData={hourlyData}
+              methodDistribution={methodDistribution}
+              ipAddressData={ipAddressData}
+              featurePerformanceData={featurePerformanceData}
+            />
+          </TabsContent>
+
+          <TabsContent value="performance" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <BarChart3 className="h-5 w-5" />
-                    Hourly Request Pattern
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-white text-sm">
+                    <Timer className="h-4 w-4" />
+                    Response Times
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={hourlyData}>
+                <CardContent className="pt-0">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={timeSeriesData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis dataKey="hour" stroke="rgba(255,255,255,0.7)" />
-                      <YAxis stroke="rgba(255,255,255,0.7)" />
+                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.7)" fontSize={10} />
+                      <YAxis stroke="rgba(255,255,255,0.7)" fontSize={10} />
                       <Tooltip 
                         contentStyle={{ 
                           backgroundColor: 'rgba(0,0,0,0.8)', 
                           border: '1px solid rgba(255,255,255,0.2)',
                           borderRadius: '8px',
-                          color: 'white'
+                          color: 'white',
+                          fontSize: '12px'
                         }} 
                       />
-                      <Bar dataKey="requests" fill="#10B981" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="errors" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="duration" 
+                        stroke="#F59E0B" 
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-white text-sm">
+                    <BarChart3 className="h-4 w-4" />
+                    Hourly Pattern
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={hourlyData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis dataKey="hour" stroke="rgba(255,255,255,0.7)" fontSize={10} />
+                      <YAxis stroke="rgba(255,255,255,0.7)" fontSize={10} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white',
+                          fontSize: '12px'
+                        }} 
+                      />
+                      <Bar dataKey="requests" fill="#10B981" radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-white text-sm">
+                    <Users className="h-4 w-4" />
+                    Top IPs
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={ipAddressData.slice(0, 5)}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis dataKey="ip" stroke="rgba(255,255,255,0.7)" fontSize={10} />
+                      <YAxis stroke="rgba(255,255,255,0.7)" fontSize={10} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          borderRadius: '8px',
+                          color: 'white',
+                          fontSize: '12px'
+                        }} 
+                      />
+                      <Bar dataKey="requests" fill="#06B6D4" radius={[2, 2, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
               <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Network className="h-5 w-5" />
-                    Method Distribution
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-white text-sm">
+                    <Server className="h-4 w-4" />
+                    Methods
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
+                <CardContent className="pt-0">
+                  <ResponsiveContainer width="100%" height={200}>
                     <RechartsPieChart>
                       <Pie
                         data={methodDistribution}
                         cx="50%"
                         cy="50%"
-                        outerRadius={120}
+                        outerRadius={80}
                         dataKey="count"
                         label={({ method, count }) => `${method}: ${count}`}
+                        labelLine={false}
                       >
                         {methodDistribution.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -617,7 +708,8 @@ const Dashboard = () => {
                           backgroundColor: 'rgba(0,0,0,0.8)', 
                           border: '1px solid rgba(255,255,255,0.2)',
                           borderRadius: '8px',
-                          color: 'white'
+                          color: 'white',
+                          fontSize: '12px'
                         }} 
                       />
                     </RechartsPieChart>
@@ -627,274 +719,18 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="performance" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Timer className="h-5 w-5" />
-                    Response Time Trends
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={timeSeriesData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.7)" />
-                      <YAxis stroke="rgba(255,255,255,0.7)" />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'rgba(0,0,0,0.8)', 
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px',
-                          color: 'white'
-                        }} 
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="duration" 
-                        stroke="#F59E0B" 
-                        strokeWidth={3}
-                        dot={{ fill: '#F59E0B', strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6, stroke: '#F59E0B', strokeWidth: 2 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <BarChart3 className="h-5 w-5" />
-                    Feature Performance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={featurePerformanceData} layout="horizontal">
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis type="number" stroke="rgba(255,255,255,0.7)" />
-                      <YAxis dataKey="feature" type="category" stroke="rgba(255,255,255,0.7)" />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'rgba(0,0,0,0.8)', 
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px',
-                          color: 'white'
-                        }} 
-                      />
-                      <Bar dataKey="avgDuration" fill="#8B5CF6" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Cpu className="h-5 w-5" />
-                    Response Time vs Requests
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart data={timeSeriesData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.7)" />
-                      <YAxis yAxisId="left" stroke="rgba(255,255,255,0.7)" />
-                      <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.7)" />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'rgba(0,0,0,0.8)', 
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px',
-                          color: 'white'
-                        }} 
-                      />
-                      <Bar yAxisId="left" dataKey="requests" fill="#3B82F6" opacity={0.7} radius={[2, 2, 0, 0]} />
-                      <Line yAxisId="right" type="monotone" dataKey="duration" stroke="#F59E0B" strokeWidth={2} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Server className="h-5 w-5" />
-                    Top IP Addresses
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={ipAddressData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis dataKey="ip" stroke="rgba(255,255,255,0.7)" />
-                      <YAxis stroke="rgba(255,255,255,0.7)" />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'rgba(0,0,0,0.8)', 
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px',
-                          color: 'white'
-                        }} 
-                      />
-                      <Bar dataKey="requests" fill="#06B6D4" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="analytics" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <TrendingUp className="h-5 w-5" />
-                    Success Rate by Feature
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <RadialBarChart data={featurePerformanceData.map(item => ({
-                      ...item,
-                      successRate: parseFloat(item.successRate)
-                    }))}>
-                      <RadialBar
-                        dataKey="successRate"
-                        cornerRadius={10}
-                        fill="#10B981"
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'rgba(0,0,0,0.8)', 
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px',
-                          color: 'white'
-                        }} 
-                      />
-                    </RadialBarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Shield className="h-5 w-5" />
-                    Error Rate by Method
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={methodDistribution}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis dataKey="method" stroke="rgba(255,255,255,0.7)" />
-                      <YAxis stroke="rgba(255,255,255,0.7)" />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'rgba(0,0,0,0.8)', 
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px',
-                          color: 'white'
-                        }} 
-                      />
-                      <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="errors" fill="#EF4444" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-xl border border-white/20 lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <HardDrive className="h-5 w-5" />
-                    Performance Scatter Plot
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <ScatterChart data={timeSeriesData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                      <XAxis dataKey="requests" stroke="rgba(255,255,255,0.7)" name="Requests" />
-                      <YAxis dataKey="duration" stroke="rgba(255,255,255,0.7)" name="Duration" />
-                      <Tooltip 
-                        cursor={{ strokeDasharray: '3 3' }}
-                        contentStyle={{ 
-                          backgroundColor: 'rgba(0,0,0,0.8)', 
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '8px',
-                          color: 'white'
-                        }} 
-                      />
-                      <Scatter dataKey="duration" fill="#8B5CF6" />
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="errors" className="space-y-6">
+          <TabsContent value="logs" className="space-y-4">
             <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <AlertCircle className="h-5 w-5" />
-                  Error Rate Analysis
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <AreaChart data={timeSeriesData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                    <XAxis dataKey="time" stroke="rgba(255,255,255,0.7)" />
-                    <YAxis stroke="rgba(255,255,255,0.7)" />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'rgba(0,0,0,0.8)', 
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        borderRadius: '8px',
-                        color: 'white'
-                      }} 
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="success" 
-                      stackId="1"
-                      stroke="#10B981" 
-                      fill="#10B981"
-                      fillOpacity={0.6}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="errors" 
-                      stackId="1"
-                      stroke="#EF4444" 
-                      fill="#EF4444"
-                      fillOpacity={0.6}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="logs" className="space-y-6">
-            <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-              <CardHeader>
+              <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-white">Request Logs</CardTitle>
-                  <div className="flex items-center gap-2 text-sm text-white/70">
-                    <Zap className="h-4 w-4" />
-                    {filteredData.length} records found
+                  <CardTitle className="text-white text-sm">Request Logs</CardTitle>
+                  <div className="flex items-center gap-1 text-xs text-white/70">
+                    <Zap className="h-3 w-3" />
+                    {filteredData.length} records
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 <CronjobTable 
                   data={filteredData} 
                   onRowClick={handleRowClick}
@@ -903,6 +739,16 @@ const Dashboard = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* API Connection Modal */}
+        <ApiConnectionModal
+          isOpen={isApiModalOpen}
+          onClose={() => setIsApiModalOpen(false)}
+          onConnect={handleConnectApi}
+          onDisconnect={handleDisconnectApi}
+          isConnected={useApiData}
+          currentUrl={apiUrl}
+        />
 
         {/* Transaction Details Modal */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
