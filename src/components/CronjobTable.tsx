@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Eye, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { 
   Pagination, 
@@ -37,7 +38,7 @@ type SortDirection = 'asc' | 'desc';
 
 const CronjobTable: React.FC<CronjobTableProps> = ({ data, onRowClick }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -167,6 +168,32 @@ const CronjobTable: React.FC<CronjobTableProps> = ({ data, onRowClick }) => {
 
   return (
     <div className="space-y-4">
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-white/70">Show</span>
+          <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+            setItemsPerPage(parseInt(value));
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-20 h-8 bg-white/10 border-white/20 text-white text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-white/70">entries</span>
+        </div>
+        
+        <div className="text-sm text-white/70">
+          Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedData.length)} of {sortedData.length} results
+        </div>
+      </div>
+
       <div className="rounded-md border bg-white/50 backdrop-blur-sm overflow-hidden">
         <Table>
           <TableHeader>
@@ -291,11 +318,7 @@ const CronjobTable: React.FC<CronjobTableProps> = ({ data, onRowClick }) => {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedData.length)} of {sortedData.length} results
-          </div>
-          
+        <div className="flex items-center justify-center">
           <Pagination>
             <PaginationContent>
               <PaginationItem>

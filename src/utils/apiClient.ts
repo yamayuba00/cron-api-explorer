@@ -105,6 +105,37 @@ class ApiClient {
     const result = await response.json();
     return result.data || result;
   }
+
+  // Get paginated data from API
+  async fetchPaginatedData(page: number = 1, limit: number = 20, filters?: {
+    status?: string;
+    feature?: string;
+    method?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{ data: CronjobData[], total: number, currentPage: number, totalPages: number }> {
+    const params = {
+      page,
+      limit,
+      ...filters
+    };
+
+    try {
+      const data = await this.fetchTransactionHistory(params);
+      
+      // Since most APIs don't return pagination metadata, we simulate it
+      // In a real scenario, the API should return this information
+      return {
+        data,
+        total: data.length,
+        currentPage: page,
+        totalPages: Math.ceil(data.length / limit)
+      };
+    } catch (error) {
+      console.error('Failed to fetch paginated data:', error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance
