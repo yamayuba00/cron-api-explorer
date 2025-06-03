@@ -764,7 +764,6 @@ const Dashboard = () => {
                       successRate: parseFloat(item.successRate)
                     }))}>
                       <RadialBar
-                        minAngle={15}
                         dataKey="successRate"
                         cornerRadius={10}
                         fill="#10B981"
