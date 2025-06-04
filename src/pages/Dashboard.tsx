@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -20,6 +21,8 @@ import MonitoringMetrics from '@/components/MonitoringMetrics';
 import SmartFilters from '@/components/SmartFilters';
 import DashboardPlaylist from '@/components/DashboardPlaylist';
 import SnapshotManager from '@/components/SnapshotManager';
+import AdvancedAnalytics from '@/components/AdvancedAnalytics';
+import AutoSummary from '@/components/AutoSummary';
 import { apiClient, CronjobData } from '@/utils/apiClient';
 import { useToast } from '@/hooks/use-toast';
 

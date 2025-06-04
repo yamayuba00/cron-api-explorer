@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart, Area, AreaChart } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart, Area, AreaChart, Cell } from 'recharts';
 import { TrendingUp, BarChart3, Activity, Target, Clock } from 'lucide-react';
 import { CronjobData } from '@/utils/apiClient';
 
@@ -212,7 +212,7 @@ const AdvancedAnalytics: React.FC<AdvancedAnalyticsProps> = ({ data }) => {
                 />
                 <Bar dataKey="count" radius={[2, 2, 0, 0]}>
                   {analytics.histogram.map((entry, index) => (
-                    <Bar key={index} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
               </BarChart>
