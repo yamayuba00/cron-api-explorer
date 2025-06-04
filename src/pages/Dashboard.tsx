@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Activity, Search, Filter, RefreshCw, Globe, BarChart3, PieChart, TrendingUp, Users, Server, Shield, Zap, Timer, Database, AlertCircle, Monitor, Camera, FileText, Brain } from 'lucide-react';
+import { Activity, Search, Filter, RefreshCw, Globe, BarChart3, PieChart, TrendingUp, Users, Server, Shield, Zap, Timer, Database, AlertCircle, Monitor, Camera, FileText, Brain, AlertTriangle, Lightbulb } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import CronjobTable from '@/components/CronjobTable';
@@ -23,6 +23,10 @@ import SnapshotManager from '@/components/SnapshotManager';
 import AdvancedAnalytics from '@/components/AdvancedAnalytics';
 import AutoSummary from '@/components/AutoSummary';
 import LogAnalysisAI from '@/components/LogAnalysisAI';
+import VisualAnomalyDetector from '@/components/VisualAnomalyDetector';
+import InsightGenerator from '@/components/InsightGenerator';
+import TrendLearning from '@/components/TrendLearning';
+import InsightFeed from '@/components/InsightFeed';
 import { apiClient, CronjobData, ApiConfig } from '@/utils/apiClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -42,6 +46,7 @@ const Dashboard = () => {
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
+  const [liveAlerts, setLiveAlerts] = useState<any[]>([]);
   const { toast } = useToast();
 
   // Load API config from localStorage on component mount
@@ -253,11 +258,24 @@ const Dashboard = () => {
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#F97316'];
 
+  const handleAnomalyDetected = (anomaly: any) => {
+    setLiveAlerts(prev => [anomaly, ...prev.slice(0, 4)]); // Keep last 5 alerts
+    
+    // Show toast for critical anomalies
+    if (anomaly.severity === 'critical') {
+      toast({
+        title: "Critical Anomaly Detected",
+        description: anomaly.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-2">
       <div className="max-w-full mx-auto space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between bg-white/10 backdrop-blur-xl rounded-xl p-4 shadow-2xl border border-white/20">
+        {/* Header with Live Alerts Overlay */}
+        <div className="flex items-center justify-between bg-white/10 backdrop-blur-xl rounded-xl p-4 shadow-2xl border border-white/20 relative">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Activity className="h-6 w-6 text-cyan-400" />
@@ -514,7 +532,7 @@ const Dashboard = () => {
         {/* Charts Section - Only show when connected and have data */}
         {useApiData && data.length > 0 && (
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-8 bg-white/10 border border-white/20 h-8">
+            <TabsList className="grid w-full grid-cols-10 bg-white/10 border border-white/20 h-8">
               <TabsTrigger value="overview" className="text-white data-[state=active]:bg-white/20 text-xs">
                 <BarChart3 className="h-3 w-3 mr-1" />
                 Overview
@@ -535,9 +553,17 @@ const Dashboard = () => {
                 <Brain className="h-3 w-3 mr-1" />
                 AI
               </TabsTrigger>
-              <TabsTrigger value="performance" className="text-white data-[state=active]:bg-white/20 text-xs">
-                <Timer className="h-3 w-3 mr-1" />
-                Performance
+              <TabsTrigger value="anomalies" className="text-white data-[state=active]:bg-white/20 text-xs">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Anomalies
+              </TabsTrigger>
+              <TabsTrigger value="insights" className="text-white data-[state=active]:bg-white/20 text-xs">
+                <Lightbulb className="h-3 w-3 mr-1" />
+                Insights
+              </TabsTrigger>
+              <TabsTrigger value="trends" className="text-white data-[state=active]:bg-white/20 text-xs">
+                <TrendingUp className="h-3 w-3 mr-1" />
+                Trends
               </TabsTrigger>
               <TabsTrigger value="summary" className="text-white data-[state=active]:bg-white/20 text-xs">
                 <FileText className="h-3 w-3 mr-1" />
@@ -647,6 +673,23 @@ const Dashboard = () => {
 
             <TabsContent value="ai" className="space-y-4">
               <LogAnalysisAI data={data} timeRange={timeRange} />
+            </TabsContent>
+
+            <TabsContent value="anomalies" className="space-y-4">
+              <VisualAnomalyDetector 
+                data={data} 
+                timeRange={timeRange}
+                onAnomalyDetected={handleAnomalyDetected}
+              />
+            </TabsContent>
+
+            <TabsContent value="insights" className="space-y-4">
+              <InsightGenerator data={data} timeRange={timeRange} />
+              <InsightFeed data={data} />
+            </TabsContent>
+
+            <TabsContent value="trends" className="space-y-4">
+              <TrendLearning data={data} timeRange={timeRange} />
             </TabsContent>
 
             <TabsContent value="performance" className="space-y-4">
