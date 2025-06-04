@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Activity, Search, Filter, RefreshCw, Globe, BarChart3, PieChart, TrendingUp, Users, Server, Shield, Zap, Timer, Database, AlertCircle } from 'lucide-react';
+import { Activity, Search, Filter, RefreshCw, Globe, BarChart3, PieChart, TrendingUp, Users, Server, Shield, Zap, Timer, Database, AlertCircle, Monitor, Camera, FileText } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import CronjobTable from '@/components/CronjobTable';
@@ -17,6 +17,9 @@ import TransactionDetails from '@/components/TransactionDetails';
 import ApiConnectionModal from '@/components/ApiConnectionModal';
 import MonitoringCharts from '@/components/MonitoringCharts';
 import MonitoringMetrics from '@/components/MonitoringMetrics';
+import SmartFilters from '@/components/SmartFilters';
+import DashboardPlaylist from '@/components/DashboardPlaylist';
+import SnapshotManager from '@/components/SnapshotManager';
 import { apiClient, CronjobData } from '@/utils/apiClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -34,6 +37,8 @@ const Dashboard = () => {
   const [refreshInterval, setRefreshInterval] = useState(30);
   const [useApiData, setUseApiData] = useState(false);
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
+  const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
+  const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const { toast } = useToast();
 
   // Load API URL from localStorage on component mount
@@ -296,6 +301,26 @@ const Dashboard = () => {
             </Select>
 
             <Button 
+              onClick={() => setIsPlaylistOpen(true)}
+              size="sm" 
+              variant="outline" 
+              className="border-white/20 text-white hover:bg-white/10"
+            >
+              <Monitor className="h-4 w-4 mr-1" />
+              TV
+            </Button>
+
+            <Button 
+              onClick={() => setIsSnapshotOpen(true)}
+              size="sm" 
+              variant="outline" 
+              className="border-white/20 text-white hover:bg-white/10"
+            >
+              <Camera className="h-4 w-4 mr-1" />
+              Snapshot
+            </Button>
+
+            <Button 
               onClick={() => setIsApiModalOpen(true)} 
               size="sm" 
               variant="outline" 
@@ -386,6 +411,23 @@ const Dashboard = () => {
           </div>
         )}
 
+        {/* Smart Filters - Only show when connected */}
+        {useApiData && data.length > 0 && (
+          <SmartFilters 
+            data={data}
+            onApplyFilter={(filterType, value) => {
+              if (filterType === 'status') setStatusFilter(value);
+              if (filterType === 'feature') setFeatureFilter(value);
+              if (filterType === 'method') setMethodFilter(value);
+            }}
+            currentFilters={{
+              statusFilter,
+              featureFilter,
+              methodFilter
+            }}
+          />
+        )}
+
         {/* Filters - Only show when connected */}
         {useApiData && (
           <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
@@ -464,7 +506,7 @@ const Dashboard = () => {
         {/* Charts Section - Only show when connected and have data */}
         {useApiData && data.length > 0 && (
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-6 bg-white/10 border border-white/20 h-8">
+            <TabsList className="grid w-full grid-cols-7 bg-white/10 border border-white/20 h-8">
               <TabsTrigger value="overview" className="text-white data-[state=active]:bg-white/20 text-xs">
                 <BarChart3 className="h-3 w-3 mr-1" />
                 Overview
@@ -477,13 +519,17 @@ const Dashboard = () => {
                 <Zap className="h-3 w-3 mr-1" />
                 Metrics
               </TabsTrigger>
-              <TabsTrigger value="performance" className="text-white data-[state=active]:bg-white/20 text-xs">
+              <TabsTrigger value="analytics" className="text-white data-[state=active]:bg-white/20 text-xs">
                 <TrendingUp className="h-3 w-3 mr-1" />
+                Analytics
+              </TabsTrigger>
+              <TabsTrigger value="performance" className="text-white data-[state=active]:bg-white/20 text-xs">
+                <Timer className="h-3 w-3 mr-1" />
                 Performance
               </TabsTrigger>
-              <TabsTrigger value="analytics" className="text-white data-[state=active]:bg-white/20 text-xs">
-                <PieChart className="h-3 w-3 mr-1" />
-                Analytics
+              <TabsTrigger value="summary" className="text-white data-[state=active]:bg-white/20 text-xs">
+                <FileText className="h-3 w-3 mr-1" />
+                Summary
               </TabsTrigger>
               <TabsTrigger value="logs" className="text-white data-[state=active]:bg-white/20 text-xs">
                 <Database className="h-3 w-3 mr-1" />
@@ -718,6 +764,10 @@ const Dashboard = () => {
               </div>
             </TabsContent>
 
+            <TabsContent value="summary" className="space-y-4">
+              <AutoSummary data={data} timeRange={timeRange} />
+            </TabsContent>
+
             <TabsContent value="logs" className="space-y-4">
               <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
                 <CardHeader className="pb-2">
@@ -753,6 +803,30 @@ const Dashboard = () => {
             </TabsContent>
           </Tabs>
         )}
+
+        {/* Dashboard Playlist Modal */}
+        <DashboardPlaylist
+          isOpen={isPlaylistOpen}
+          onClose={() => setIsPlaylistOpen(false)}
+          onTabChange={(tab) => {
+            // In a real implementation, you'd change the active tab
+            console.log('Change to tab:', tab);
+          }}
+          currentTab="overview"
+        />
+
+        {/* Snapshot Manager Modal */}
+        <SnapshotManager
+          isOpen={isSnapshotOpen}
+          onClose={() => setIsSnapshotOpen(false)}
+          currentData={filteredData}
+          currentFilters={{
+            timeRange,
+            statusFilter,
+            featureFilter,
+            methodFilter
+          }}
+        />
 
         {/* API Connection Modal */}
         <ApiConnectionModal
