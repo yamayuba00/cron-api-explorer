@@ -19,11 +19,46 @@ interface CronjobData {
   created_at: string;
 }
 
+interface ApiConfig {
+  baseUrl: string;
+  endpoints: {
+    transactionHistory: string;
+    transactionDetail: string;
+  };
+  defaultParams: {
+    limit: number;
+    page: number;
+  };
+  headers: Record<string, string>;
+}
+
 class ApiClient {
-  private baseUrl: string = '';
+  private config: ApiConfig = {
+    baseUrl: '',
+    endpoints: {
+      transactionHistory: '/api/transaction-history',
+      transactionDetail: '/api/transaction'
+    },
+    defaultParams: {
+      limit: 20,
+      page: 1
+    },
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  };
+
+  setConfig(config: ApiConfig) {
+    this.config = config;
+  }
 
   setBaseUrl(url: string) {
-    this.baseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+    this.config.baseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+  }
+
+  getConfig(): ApiConfig {
+    return this.config;
   }
 
   async fetchTransactionHistory(params?: {
@@ -35,29 +70,33 @@ class ApiClient {
     feature?: string;
     method?: string;
   }): Promise<CronjobData[]> {
-    if (!this.baseUrl) {
+    if (!this.config.baseUrl) {
       throw new Error('API base URL not set');
     }
 
     const queryParams = new URLSearchParams();
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.startDate) queryParams.append('start_date', params.startDate);
-    if (params?.endDate) queryParams.append('end_date', params.endDate);
-    if (params?.status) queryParams.append('status', params.status);
-    if (params?.feature) queryParams.append('feature', params.feature);
-    if (params?.method) queryParams.append('method', params.method);
+    
+    // Use default params merged with provided params
+    const finalParams = {
+      ...this.config.defaultParams,
+      ...params
+    };
+    
+    if (finalParams.limit) queryParams.append('limit', finalParams.limit.toString());
+    if (finalParams.page) queryParams.append('page', finalParams.page.toString());
+    if (finalParams.startDate) queryParams.append('start_date', finalParams.startDate);
+    if (finalParams.endDate) queryParams.append('end_date', finalParams.endDate);
+    if (finalParams.status) queryParams.append('status', finalParams.status);
+    if (finalParams.feature) queryParams.append('feature', finalParams.feature);
+    if (finalParams.method) queryParams.append('method', finalParams.method);
 
-    const url = `${this.baseUrl}/api/transaction-history?${queryParams.toString()}`;
+    const url = `${this.config.baseUrl}${this.config.endpoints.transactionHistory}?${queryParams.toString()}`;
     
     console.log('Fetching from API:', url);
     
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: this.config.headers,
     });
 
     if (!response.ok) {
@@ -84,18 +123,15 @@ class ApiClient {
   }
 
   async fetchTransactionById(id: string): Promise<CronjobData> {
-    if (!this.baseUrl) {
+    if (!this.config.baseUrl) {
       throw new Error('API base URL not set');
     }
 
-    const url = `${this.baseUrl}/api/transaction/${id}`;
+    const url = `${this.config.baseUrl}${this.config.endpoints.transactionDetail}/${id}`;
     
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: this.config.headers,
     });
 
     if (!response.ok) {
@@ -140,4 +176,4 @@ class ApiClient {
 
 // Export singleton instance
 export const apiClient = new ApiClient();
-export type { CronjobData, ApiResponse };
+export type { CronjobData, ApiResponse, ApiConfig };

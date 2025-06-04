@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Activity, Search, Filter, RefreshCw, Globe, BarChart3, PieChart, TrendingUp, Users, Server, Shield, Zap, Timer, Database, AlertCircle, Monitor, Camera, FileText } from 'lucide-react';
+import { Activity, Search, Filter, RefreshCw, Globe, BarChart3, PieChart, TrendingUp, Users, Server, Shield, Zap, Timer, Database, AlertCircle, Monitor, Camera, FileText, Brain } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import CronjobTable from '@/components/CronjobTable';
@@ -23,7 +22,8 @@ import DashboardPlaylist from '@/components/DashboardPlaylist';
 import SnapshotManager from '@/components/SnapshotManager';
 import AdvancedAnalytics from '@/components/AdvancedAnalytics';
 import AutoSummary from '@/components/AutoSummary';
-import { apiClient, CronjobData } from '@/utils/apiClient';
+import LogAnalysisAI from '@/components/LogAnalysisAI';
+import { apiClient, CronjobData, ApiConfig } from '@/utils/apiClient';
 import { useToast } from '@/hooks/use-toast';
 
 const Dashboard = () => {
@@ -35,7 +35,7 @@ const Dashboard = () => {
   const [timeRange, setTimeRange] = useState('24h');
   const [selectedTransaction, setSelectedTransaction] = useState<CronjobData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [apiUrl, setApiUrl] = useState('');
+  const [apiConfig, setApiConfig] = useState<ApiConfig | null>(null);
   const [isRealTime, setIsRealTime] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(30);
   const [useApiData, setUseApiData] = useState(false);
@@ -44,25 +44,30 @@ const Dashboard = () => {
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const { toast } = useToast();
 
-  // Load API URL from localStorage on component mount
+  // Load API config from localStorage on component mount
   useEffect(() => {
-    const savedApiUrl = localStorage.getItem('api_url');
-    if (savedApiUrl) {
-      setApiUrl(savedApiUrl);
-      setUseApiData(true);
-      apiClient.setBaseUrl(savedApiUrl);
+    const savedConfig = localStorage.getItem('api_config');
+    if (savedConfig) {
+      try {
+        const config = JSON.parse(savedConfig);
+        setApiConfig(config);
+        setUseApiData(true);
+        apiClient.setConfig(config);
+      } catch (error) {
+        console.error('Failed to parse saved API config:', error);
+      }
     }
   }, []);
 
   // API fetch function - fully dynamic based on endpoint
   const fetchCronjobData = async (): Promise<CronjobData[]> => {
-    if (!useApiData || !apiUrl) {
+    if (!useApiData || !apiConfig) {
       // Return empty array if no API is connected, no mock data
       return [];
     }
     
     try {
-      apiClient.setBaseUrl(apiUrl);
+      apiClient.setConfig(apiConfig);
       const timeRangeHours = {
         '1h': 1,
         '6h': 6,
@@ -93,24 +98,24 @@ const Dashboard = () => {
 
   // React Query with dynamic refresh interval
   const { data = [], isLoading, refetch } = useQuery({
-    queryKey: ['cronjobData', apiUrl, useApiData, timeRange, statusFilter, featureFilter, methodFilter],
+    queryKey: ['cronjobData', apiConfig, useApiData, timeRange, statusFilter, featureFilter, methodFilter],
     queryFn: fetchCronjobData,
     refetchInterval: isRealTime ? refreshInterval * 1000 : false,
-    enabled: useApiData && !!apiUrl, // Only fetch when API is connected
+    enabled: useApiData && !!apiConfig, // Only fetch when API is connected
   });
 
-  const handleConnectApi = (url: string) => {
-    setApiUrl(url);
+  const handleConnectApi = (config: ApiConfig) => {
+    setApiConfig(config);
     setUseApiData(true);
-    apiClient.setBaseUrl(url);
-    localStorage.setItem('api_url', url);
+    apiClient.setConfig(config);
+    localStorage.setItem('api_config', JSON.stringify(config));
     refetch();
   };
 
   const handleDisconnectApi = () => {
     setUseApiData(false);
-    setApiUrl('');
-    localStorage.removeItem('api_url');
+    setApiConfig(null);
+    localStorage.removeItem('api_config');
     refetch();
   };
 
@@ -509,7 +514,7 @@ const Dashboard = () => {
         {/* Charts Section - Only show when connected and have data */}
         {useApiData && data.length > 0 && (
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-7 bg-white/10 border border-white/20 h-8">
+            <TabsList className="grid w-full grid-cols-8 bg-white/10 border border-white/20 h-8">
               <TabsTrigger value="overview" className="text-white data-[state=active]:bg-white/20 text-xs">
                 <BarChart3 className="h-3 w-3 mr-1" />
                 Overview
@@ -524,7 +529,11 @@ const Dashboard = () => {
               </TabsTrigger>
               <TabsTrigger value="analytics" className="text-white data-[state=active]:bg-white/20 text-xs">
                 <TrendingUp className="h-3 w-3 mr-1" />
-                Analytics
+                Advanced
+              </TabsTrigger>
+              <TabsTrigger value="ai" className="text-white data-[state=active]:bg-white/20 text-xs">
+                <Brain className="h-3 w-3 mr-1" />
+                AI
               </TabsTrigger>
               <TabsTrigger value="performance" className="text-white data-[state=active]:bg-white/20 text-xs">
                 <Timer className="h-3 w-3 mr-1" />
@@ -632,6 +641,14 @@ const Dashboard = () => {
               <MonitoringMetrics data={data} />
             </TabsContent>
 
+            <TabsContent value="analytics" className="space-y-4">
+              <AdvancedAnalytics data={data} />
+            </TabsContent>
+
+            <TabsContent value="ai" className="space-y-4">
+              <LogAnalysisAI data={data} timeRange={timeRange} />
+            </TabsContent>
+
             <TabsContent value="performance" className="space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
@@ -692,75 +709,6 @@ const Dashboard = () => {
                         />
                         <Bar dataKey="requests" fill="#10B981" radius={[2, 2, 0, 0]} />
                       </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="analytics" className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-white text-sm">
-                      <Users className="h-4 w-4" />
-                      Top IPs
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={ipAddressData.slice(0, 5)}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                        <XAxis dataKey="ip" stroke="rgba(255,255,255,0.7)" fontSize={10} />
-                        <YAxis stroke="rgba(255,255,255,0.7)" fontSize={10} />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'rgba(0,0,0,0.8)', 
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            borderRadius: '8px',
-                            color: 'white',
-                            fontSize: '12px'
-                          }} 
-                        />
-                        <Bar dataKey="requests" fill="#06B6D4" radius={[2, 2, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white/10 backdrop-blur-xl border border-white/20">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-white text-sm">
-                      <Server className="h-4 w-4" />
-                      Methods
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <ResponsiveContainer width="100%" height={200}>
-                      <RechartsPieChart>
-                        <Pie
-                          data={methodDistribution}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          dataKey="count"
-                          label={({ method, count }) => `${method}: ${count}`}
-                          labelLine={false}
-                        >
-                          {methodDistribution.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'rgba(0,0,0,0.8)', 
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            borderRadius: '8px',
-                            color: 'white',
-                            fontSize: '12px'
-                          }} 
-                        />
-                      </RechartsPieChart>
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>
@@ -838,7 +786,21 @@ const Dashboard = () => {
           onConnect={handleConnectApi}
           onDisconnect={handleDisconnectApi}
           isConnected={useApiData}
-          currentUrl={apiUrl}
+          currentConfig={apiConfig || {
+            baseUrl: '',
+            endpoints: {
+              transactionHistory: '/api/transaction-history',
+              transactionDetail: '/api/transaction'
+            },
+            defaultParams: {
+              limit: 20,
+              page: 1
+            },
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          }}
         />
 
         {/* Transaction Details Modal */}
